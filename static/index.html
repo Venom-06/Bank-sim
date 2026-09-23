@@ -99,7 +99,9 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:30px 20px 50p
 
 /* responsive layer */
 .panel{overflow-x:auto}
-.mono,.stat .value{overflow-wrap:anywhere}
+.stat .value{overflow-wrap:anywhere}
+td.mono,.cards td{white-space:nowrap}
+td.mono{white-space:nowrap}
 .stat .value{font-size:clamp(15px,4.2vw,22px)}
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 input,select,button{min-height:40px}
@@ -112,7 +114,16 @@ input,select,button{min-height:40px}
   .row{gap:8px}
   .row input,.row select{flex:1 1 130px;min-width:0;max-width:none !important;font-size:16px}
   .row .btn,.row button{flex:1 1 auto}
-  th,td{padding:8px 4px;font-size:12px}
+  th,td{padding:8px 6px;font-size:12px;white-space:nowrap}
+  table.cards thead{display:none}
+  table.cards,table.cards tbody{display:block}
+  table.cards tr{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:14px 0;border-bottom:1px solid var(--border)}
+  table.cards td{display:block;border:0;padding:0;font-size:14px}
+  table.cards td[data-label]::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+  table.cards td:first-child{grid-column:1/-1}
+  table.cards td:last-child:not([data-label]){grid-column:1/-1}
+  table.cards td:first-child{font-size:17px}
+  table.cards td:last-child .btn{width:100%}
   .pagehead p{font-size:13px}
 }
 @media(max-width:420px){.grid3,.grid2{grid-template-columns:1fr}}
@@ -380,11 +391,11 @@ input,select,button{min-height:40px}
   </section>
 
   <section id="view-market" class="view hidden">
-    <div class="pagehead"><div><h1>All Banks</h1><p>Every bank on this artifact, live. Sign in to appear here and trade other banks' shares.</p></div></div>
+    <div class="pagehead"><div><h1>All Banks</h1><p>Every bank on this server, live. Sign in to appear here and trade other banks' shares.</p></div></div>
     <div id="m_signedout" class="banner warn hidden">You're not signed in, so you're invisible on this list and can't trade other banks' shares. Your own bank still works normally in the other tabs.</div>
     <div class="panel">
       <h3>Market</h3>
-      <table><thead><tr><th>Bank</th><th>Share price</th><th>Market cap</th><th>Div/share</th><th>Quarter</th><th></th></tr></thead>
+      <table class="cards"><thead><tr><th>Bank</th><th>Share price</th><th>Market cap</th><th>Div/share</th><th>Quarter</th><th></th></tr></thead>
       <tbody id="m_list"></tbody></table>
       <div id="m_empty" class="empty hidden">No banks published yet — your bank appears here once it has been published.</div>
       <div class="row hidden" id="m_pager" style="justify-content:space-between;margin-top:10px"></div>
@@ -400,7 +411,7 @@ input,select,button{min-height:40px}
     </div>
     <div class="panel">
       <h3>Your investments</h3>
-      <table><thead><tr><th>Bank</th><th>Shares</th><th>Avg price</th><th>Current price</th><th>Value</th></tr></thead>
+      <table class="cards"><thead><tr><th>Bank</th><th>Shares</th><th>Avg price</th><th>Current price</th><th>Value</th></tr></thead>
       <tbody id="m_portfolio"></tbody></table>
       <div id="m_portfolio_empty" class="empty hidden">You don't hold shares in any other bank yet.</div>
     </div>
@@ -646,6 +657,7 @@ function bookLevels(orders,side){
   const m=new Map(); orders.forEach(o=>m.set(o.price,(m.get(o.price)||0)+o.qty));
   return [...m].map(([price,qty])=>({price,qty})).sort((a,b)=>side==="BID"?b.price-a.price:a.price-b.price).slice(0,BOOK_LEVELS);
 }
+const compact=n=>new Intl.NumberFormat("en-IN",{notation:"compact",maximumFractionDigits:2}).format(n||0);
 // All Banks list: 30 banks per page.
 const BANKS_PER_PAGE=30; let marketPage=0;
 function renderMarket(){
@@ -660,10 +672,10 @@ function renderMarket(){
   $("m_empty").classList.toggle("hidden", all.length>0);
   $("m_list").innerHTML=rows.map(([uid,b])=>`<tr>
     <td><a class="banklink" data-uid="${uid}">${b.bankName||"Unnamed bank"}</a>${uid===myId?' <span class="pill ok">you</span>':''}</td>
-    <td class="mono">${money(b.stockPrice)}</td>
-    <td class="mono">${money(b.marketCap)}</td>
-    <td class="mono">${money(b.dividendPerShare||0)}</td>
-    <td>${quarterLabel(b.quarter||0)}</td>
+    <td class="mono" data-label="Share price">${money(b.stockPrice)}</td>
+    <td class="mono" data-label="Market cap">${compact(b.marketCap)}</td>
+    <td class="mono" data-label="Div/share">${money(b.dividendPerShare||0)}</td>
+    <td data-label="Quarter">${quarterLabel(b.quarter||0)}</td>
     <td>${uid===myId?'':`<button class="btn secondary" data-buid="${uid}">Trade</button>`}</td>
   </tr>`).join("");
   $("m_list").querySelectorAll("button[data-buid]").forEach(btn=>{
@@ -766,7 +778,7 @@ async function renderPortfolio(){
   $("m_portfolio_empty").classList.toggle("hidden", rows.length>0);
   $("m_portfolio").innerHTML=rows.map(r=>{
     const live=banksCache[r.bankId]; const curPrice=live?live.stockPrice:r.avgPrice;
-    return `<tr><td>${r.bankName}</td><td class="mono">${money(r.shares)}</td><td class="mono">${money(r.avgPrice)}</td><td class="mono">${money(curPrice)}</td><td class="mono">${money(r.shares*curPrice)}</td></tr>`;
+    return `<tr><td>${r.bankName}</td><td class="mono" data-label="Shares">${money(r.shares)}</td><td class="mono" data-label="Avg price">${money(r.avgPrice)}</td><td class="mono" data-label="Current price">${money(curPrice)}</td><td class="mono" data-label="Value">${compact(r.shares*curPrice)}</td></tr>`;
   }).join("");
 }
 
@@ -1014,7 +1026,7 @@ $("registerForm").addEventListener("submit",async e=>{
   const u=$("r_user").value.trim(), p=$("r_pass").value, bank=$("r_bank").value.trim();
   if(!u||!p){ showAuthError("Username and password are required"); return; }
   await syncClock();
-  const st=defaultState(u,bank); st.quarter=globalQ(); st.lastGlobalQ=globalQ(); // new banks join at the current universal quarter
+  const st=defaultState(u,bank); st.quarter=clock.base+globalQ(); st.lastGlobalQ=globalQ(); // new banks join at the current universal quarter
   const r=await jpost("/api/register",{username:u,password:p,state:st});
   if(!r.ok){ showAuthError(r.error||"Could not create account"); return; }
   players={}; players[u]=st; currentUser=u; enterApp();
@@ -1291,12 +1303,12 @@ function ctcTrade(side){
   persist(); $("c_qty").value=""; render();
 }
 
-// Universal quarter clock: the server runs every bank's quarter at the top of each hour; this only shows the countdown and pulls fresh state.
-const QUARTER_MS=3600000;
-let clock={epoch:0,offset:0,synced:0};
+// Universal quarter clock: the server runs every bank's quarter every hour; this only shows the countdown and pulls fresh state.
+let QUARTER_MS=60000;
+let clock={epoch:0,offset:0,synced:0,base:0};
 async function syncClock(){
   const r=await fetch("/api/clock").then(r=>r.json());
-  clock={epoch:r.epoch_ms,offset:r.now_ms-Date.now(),synced:Date.now()};
+  QUARTER_MS=r.quarter_ms; clock={epoch:r.epoch_ms,offset:r.now_ms-Date.now(),synced:Date.now(),base:r.base};
 }
 function globalQ(){ return Math.floor((Date.now()+clock.offset-clock.epoch)/QUARTER_MS); }
 let pollN=0;

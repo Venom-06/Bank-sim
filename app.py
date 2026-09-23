@@ -1,21 +1,57 @@
 """Bank Simulator server: Flask + SQLite.
 Serves the game and provides the shared document store used by the
 bond / share / CTC order books, fills, holdings and the bank list."""
-import json, os, re, secrets, sqlite3, threading, time
+import contextlib, json, os, re, secrets, sqlite3, threading, time
 from flask import Flask, jsonify, request, send_from_directory, session
 import economy
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__, static_folder="static")
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
-DB = sqlite3.connect("banksim.db", check_same_thread=False)
+DB = sqlite3.connect(os.environ.get("DB_PATH", "banksim.db"), check_same_thread=False, isolation_level=None, timeout=30)
+DB.execute("PRAGMA journal_mode=WAL")
 DB.execute("CREATE TABLE IF NOT EXISTS docs(col TEXT, id TEXT, data TEXT, PRIMARY KEY(col, id))")
 DB.execute("CREATE TABLE IF NOT EXISTS players(username TEXT PRIMARY KEY, pw TEXT, state TEXT)")
 DB.execute("CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)")
-if not DB.execute("SELECT 1 FROM meta WHERE k='epoch'").fetchone():  # quarter 0 starts at the top of the first hour
-    DB.execute("INSERT INTO meta VALUES('epoch', ?)", (str(int(time.time() // 3600 * 3600 * 1000)),))
-    DB.commit()
+QUARTER_MS = int(os.environ.get("QUARTER_SECONDS", 3600)) * 1000  # 1 hour = 1 quarter
+
+
+def meta(k):
+    r = DB.execute("SELECT v FROM meta WHERE k=?", (k,)).fetchone()
+    return r[0] if r else None
+
+
+def init_clock():
+    """(Re)start the universal clock when it is first created or the quarter length changes.
+    Existing banks are aligned to the highest existing quarter so everyone shows the same quarter."""
+    if meta("quarter_ms") == str(QUARTER_MS) and meta("epoch"):
+        return
+    rows = [(u, json.loads(s)) for u, s in DB.execute("SELECT username, state FROM players").fetchall()]
+    base = max([st.get("quarter", 0) for _, st in rows] or [0])
+    DB.execute("BEGIN IMMEDIATE")
+    for k, v in (("epoch", int(time.time() * 1000) // QUARTER_MS * QUARTER_MS), ("quarter_ms", QUARTER_MS), ("qbase", base)):
+        DB.execute("REPLACE INTO meta VALUES(?,?)", (k, str(v)))
+    for u, st in rows:
+        st.update(quarter=base, lastGlobalQ=0, _v=st.get("_v", 0) + 1)
+        DB.execute("UPDATE players SET state=? WHERE username=?", (json.dumps(st), u))
+    DB.execute("COMMIT")
+
+
+init_clock()
 lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def tx():
+    """Serialised write transaction: safe across threads AND across worker processes."""
+    with lock:
+        DB.execute("BEGIN IMMEDIATE")
+        try:
+            yield
+            DB.execute("COMMIT")
+        except BaseException:
+            DB.execute("ROLLBACK")
+            raise
 
 
 @app.get("/")
@@ -31,9 +67,8 @@ def guard():
 
 @app.get("/api/clock")
 def clock():
-    """Universal quarter clock: 1 hour = 1 quarter, same for every bank."""
-    epoch = int(DB.execute("SELECT v FROM meta WHERE k='epoch'").fetchone()[0])
-    return jsonify(epoch_ms=epoch, now_ms=int(time.time() * 1000))
+    """Universal quarter clock: same for every bank."""
+    return jsonify(epoch_ms=int(meta("epoch")), now_ms=int(time.time() * 1000), quarter_ms=QUARTER_MS, base=int(meta("qbase")))
 
 
 @app.get("/api/me")
@@ -47,11 +82,10 @@ def register():
     u = (b.get("username") or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9_-]{3,24}", u) or not b.get("password"):
         return jsonify(error="Username: 3-24 letters, numbers, _ or -. Password required."), 400
-    with lock:
+    with tx():
         if DB.execute("SELECT 1 FROM players WHERE username=?", (u,)).fetchone():
             return jsonify(error="Username already exists"), 409
         DB.execute("INSERT INTO players VALUES(?,?,?)", (u, generate_password_hash(b["password"]), json.dumps(b["state"])))
-        DB.commit()
     session["user"] = u
     return jsonify(ok=True)
 
@@ -83,13 +117,12 @@ def get_state():
 @app.put("/api/state")
 def save_state():
     body = request.get_json()
-    with lock:
+    with tx():
         cur = json.loads(DB.execute("SELECT state FROM players WHERE username=?", (session["user"],)).fetchone()[0])
         if body.get("_v", 0) != cur.get("_v", 0):  # the server advanced a quarter since the browser last loaded
             return jsonify(conflict=True, state=cur), 409
         body["_v"] = cur.get("_v", 0) + 1
         DB.execute("UPDATE players SET state=? WHERE username=?", (json.dumps(body), session["user"]))
-        DB.commit()
     return jsonify(ok=True, _v=body["_v"])
 
 
@@ -109,15 +142,14 @@ def query():
 @app.post("/api/add/<col>")
 def add(col):
     doc_id = secrets.token_hex(8)
-    with lock:
+    with tx():
         DB.execute("INSERT INTO docs VALUES(?,?,?)", (col, doc_id, json.dumps(request.get_json())))
-        DB.commit()
     return jsonify(id=doc_id)
 
 
 @app.route("/api/doc/<col>/<path:doc_id>", methods=["GET", "PUT", "PATCH", "DELETE"])
 def doc(col, doc_id):
-    with lock:
+    with tx():
         cur = DB.execute("SELECT data FROM docs WHERE col=? AND id=?", (col, doc_id)).fetchone()
         if request.method == "GET":
             return jsonify(exists=bool(cur), data=json.loads(cur[0]) if cur else None)
@@ -128,32 +160,30 @@ def doc(col, doc_id):
             if request.method == "PATCH":
                 body = {**(json.loads(cur[0]) if cur else {}), **body}
             DB.execute("REPLACE INTO docs VALUES(?,?,?)", (col, doc_id, json.dumps(body)))
-        DB.commit()
     return jsonify(ok=True)
 
 
 def current_quarter():
-    epoch = int(DB.execute("SELECT v FROM meta WHERE k='epoch'").fetchone()[0])
-    return int((time.time() * 1000 - epoch) // 3600000)
+    return int((time.time() * 1000 - int(meta("epoch"))) // QUARTER_MS)
 
 
 def run_due_quarters():
     """Advance every bank to the current universal quarter (1 hour = 1 quarter), online or not."""
-    g = current_quarter()
-    with lock:
+    g, base = current_quarter(), int(meta("qbase"))
+    with tx():
         for username, raw in DB.execute("SELECT username, state FROM players").fetchall():
             st = json.loads(raw)
             last = st.get("lastGlobalQ")
             if last is not None and g > last:
-                for _ in range(min(g - last, 24)):
+                for _ in range(min(g - last, 48)):
                     economy.advance_quarter(st)
             elif last is not None:
                 continue
+            st["quarter"] = base + g  # always show the universal quarter number
             st["lastGlobalQ"] = g
             st["_v"] = st.get("_v", 0) + 1
             DB.execute("UPDATE players SET state=? WHERE username=?", (json.dumps(st), username))
             DB.execute("REPLACE INTO docs VALUES('banks', ?, ?)", (username, json.dumps(economy.public_doc(st))))
-        DB.commit()
 
 
 def scheduler():
@@ -165,6 +195,8 @@ def scheduler():
         time.sleep(5)
 
 
+# Start the quarter scheduler on import so it also runs under gunicorn (not only `python app.py`).
+threading.Thread(target=scheduler, daemon=True).start()
+
 if __name__ == "__main__":
-    threading.Thread(target=scheduler, daemon=True).start()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
