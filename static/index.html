@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BankSim — Run Your Own Bank</title>
+<meta name="theme-color" content="#0E1116">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0E1116; --panel:#151A22; --panel2:#11151C; --border:#262D3A;
+  --text:#E8EAED; --muted:#8B93A7; --brass:#C9A227; --brass-dim:#8A711F;
+  --up:#4CAF7D; --down:#D9534F; --warn:#E0A63A;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;}
+.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
+h1,h2,h3,.brand{font-family:"Space Grotesk",-apple-system,sans-serif}
+a{color:inherit}
+.hidden{display:none !important}
+
+nav{position:sticky;top:0;z-index:20;padding-top:env(safe-area-inset-top,0px);
+  background:rgba(14,17,22,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);}
+.navrow{max-width:1060px;margin:auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{font-size:19px;font-weight:700;letter-spacing:.2px}
+.brand span{color:var(--brass)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{background:none;border:1px solid transparent;color:var(--muted);padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer}
+.tabs button.active{color:var(--text);background:var(--panel);border-color:var(--border)}
+.tabs button:hover{color:var(--text)}
+#logoutBtn{background:none;border:1px solid var(--border);color:var(--muted);padding:8px 12px;border-radius:8px;cursor:pointer;font-size:14px}
+
+main{max-width:1060px;margin:auto;padding:28px 20px 60px}
+
+.authwrap{max-width:400px;margin:9vh auto;padding:0 20px}
+.authwrap h1{font-size:26px;margin:0 0 4px}
+.authwrap p.sub{color:var(--muted);margin:0 0 26px;font-size:14px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px}
+label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px}
+label:first-of-type{margin-top:0}
+input{width:100%;padding:11px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px}
+input:focus{outline:2px solid var(--brass-dim);outline-offset:1px}
+.btn{display:inline-block;background:var(--brass);color:#161206;border:0;padding:11px 18px;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px}
+.btn:hover{background:#dbb333}
+.btn.secondary{background:none;border:1px solid var(--border);color:var(--text)}
+.btn.sell{background:transparent;border:1px solid var(--down);color:var(--down)}
+.btn.buy{background:transparent;border:1px solid var(--up);color:var(--up)}
+.fullw{width:100%;margin-top:18px}
+.authtoggle{margin-top:16px;text-align:center;font-size:13px;color:var(--muted)}
+.authtoggle a{color:var(--brass);cursor:pointer;text-decoration:none}
+.err{background:#3a1c22;border:1px solid #5b2530;color:#f2a5ab;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:14px}
+
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.pagehead h1{font-size:24px;margin:0}
+.pagehead p{color:var(--muted);margin:4px 0 0;font-size:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 14px}
+.stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.stat .label{color:var(--muted);font-size:12px}
+.stat .value{font-family:"JetBrains Mono",monospace;font-size:19px;margin-top:6px;font-weight:500}
+.stat .value.up{color:var(--up)} .stat .value.down{color:var(--down)}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:14px}
+.panel h3{margin:0 0 4px;font-size:15px}
+.panel .desc{color:var(--muted);font-size:13px;margin-bottom:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse;margin-top:6px}
+th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--border);font-size:13px}
+th{color:var(--muted);font-weight:500;font-size:12px}
+td.mono{font-family:"JetBrains Mono",monospace}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.pill.buy,.pill.profit,.pill.ok{background:rgba(76,175,125,.15);color:var(--up)}
+.pill.sell,.pill.loss,.pill.bad{background:rgba(217,83,79,.15);color:var(--down)}
+.pill.warn{background:rgba(224,166,58,.15);color:var(--warn)}
+.empty{color:var(--muted);font-size:13px;padding:10px 0}
+.hint{color:var(--muted);font-size:12px;margin-top:8px}
+.banklink{color:var(--brass);cursor:pointer;text-decoration:none;font-weight:500}
+.banklink:hover{text-decoration:underline}
+.banner{border-radius:10px;padding:12px 16px;font-size:13px;margin-bottom:14px;border:1px solid}
+.banner.bad{background:rgba(217,83,79,.1);border-color:#5b2530;color:#f2a5ab}
+.banner.warn{background:rgba(224,166,58,.1);border-color:#6b5324;color:#f0cf8f}
+.bsheet{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.bsheet h4{margin:0 0 8px;font-size:12px;color:var(--muted);font-weight:600}
+.bline{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px}
+.bline.sub{padding-left:10px;color:var(--muted);font-size:12px;border-bottom:none}
+.bline.total{border-bottom:none;border-top:1px solid var(--border);margin-top:4px;padding-top:10px;font-weight:600}
+.bline.section{border-bottom:none;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding-top:14px;padding-bottom:2px}
+.bline.section:first-child{padding-top:0}
+.spark{width:100%;height:56px;display:block;margin-top:6px}
+.ratiorow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px dashed var(--border)}
+.ratiorow:last-child{border-bottom:none}
+.ratiorow .rlabel{font-size:13px}.ratiorow .rlabel .sub{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:30px 20px 50px}
+@media(max-width:640px){.grid3{grid-template-columns:1fr 1fr}.grid2,.bsheet{grid-template-columns:1fr}.tabs{order:3;width:100%;justify-content:flex-start}}
+
+/* responsive layer */
+.panel{overflow-x:auto}
+.mono,.stat .value{overflow-wrap:anywhere}
+.stat .value{font-size:clamp(15px,4.2vw,22px)}
+body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+input,select,button{min-height:40px}
+@media(max-width:900px){.navrow{padding:12px 14px}.pagehead h1{font-size:21px}}
+@media(max-width:640px){
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:0 0 auto;white-space:nowrap;min-height:38px}
+  .panel{padding:14px}
+  .row{gap:8px}
+  .row input,.row select{flex:1 1 130px;min-width:0;max-width:none !important;font-size:16px}
+  .row .btn,.row button{flex:1 1 auto}
+  th,td{padding:8px 4px;font-size:12px}
+  .pagehead p{font-size:13px}
+}
+@media(max-width:420px){.grid3,.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="authScreen" class="authwrap">
+  <h1 class="brand">🏦 Bank<span>Sim</span></h1>
+  <p class="sub">Run a bank with a real balance sheet, a detailed income statement, and tradable shares. Demo only — saved to this browser.</p>
+  <div class="card">
+    <div id="authError" class="err hidden"></div>
+    <form id="loginForm">
+      <label for="li_user">Username</label>
+      <input id="li_user" autocomplete="username" required>
+      <label for="li_pass">Password</label>
+      <input id="li_pass" type="password" autocomplete="current-password" required>
+      <button class="btn fullw" type="submit">Log in</button>
+    </form>
+    <form id="registerForm" class="hidden">
+      <label for="r_user">Username</label>
+      <input id="r_user" required>
+      <label for="r_bank">Bank name</label>
+      <input id="r_bank" placeholder="e.g. Meridian Trust">
+      <label for="r_pass">Password</label>
+      <input id="r_pass" type="password" required>
+      <button class="btn fullw" type="submit">Found my bank</button>
+    </form>
+    <div class="authtoggle">
+      <span id="toRegister">New here? <a>Start a bank</a></span>
+      <span id="toLogin" class="hidden">Already have a bank? <a>Log in</a></span>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+<nav>
+  <div class="navrow">
+    <div class="brand">🏦 Bank<span>Sim</span></div>
+    <div class="tabs" id="tabs">
+      <button data-view="dashboard">Dashboard</button>
+      <button data-view="rates">Rates</button>
+      <button data-view="bonds">Bonds</button>
+      <button data-view="loans">Funding</button>
+      <button data-view="shares">Shares</button>
+      <button data-view="ctc">CTC Market</button>
+      <button data-view="market">All Banks</button>
+    </div>
+    <button id="logoutBtn">Log out</button>
+  </div>
+</nav>
+
+<main>
+  <section id="view-dashboard" class="view">
+    <div class="pagehead">
+      <div><h1 id="bankTitle">Bank</h1><p id="yearLine">Q1 2018</p></div>
+      <div class="hint" style="margin:0;text-align:right">Next quarter in<br><span class="mono" id="qCountdown" style="font-size:18px;color:var(--text)">—</span></div>
+    </div>
+    <div id="d_banner"></div>
+    <div class="grid3">
+      <div class="stat"><div class="label">Equity (capital)</div><div class="value mono" id="d_equity">—</div></div>
+      <div class="stat"><div class="label">Market cap (traded)</div><div class="value mono" id="d_cap">—</div></div>
+      <div class="stat"><div class="label">Share price</div><div class="value mono" id="d_share">—</div></div>
+      <div class="stat"><div class="label">Inflation</div><div class="value mono" id="d_inflation">—</div></div>
+      <div class="stat"><div class="label">GDP</div><div class="value mono" id="d_gdp">—</div></div>
+      <div class="stat"><div class="label">Central bank rate</div><div class="value mono" id="d_central">—</div></div>
+    </div>
+    <div class="panel">
+      <h3>Balance sheet</h3>
+      <div class="desc">What your bank owns versus what it owes.</div>
+      <div class="bsheet">
+        <div><h4>Assets</h4>
+          <div class="bline"><span>Cash reserve</span><span class="mono" id="bs_reserve"></span></div>
+          <div class="bline"><span>Personal loan book</span><span class="mono" id="bs_personal"></span></div>
+          <div class="bline"><span>Home loan book</span><span class="mono" id="bs_home"></span></div>
+          <div class="bline"><span>Bonds (market value)</span><span class="mono" id="bs_bonds"></span></div>
+          <div class="bline total"><span>Total assets</span><span class="mono" id="bs_totalassets"></span></div>
+        </div>
+        <div><h4>Liabilities &amp; equity</h4>
+          <div class="bline"><span>Savings deposits</span><span class="mono" id="bs_savings"></span></div>
+          <div class="bline"><span>Fixed deposits</span><span class="mono" id="bs_fd"></span></div>
+          <div class="bline"><span>Central bank funding</span><span class="mono" id="bs_funding"></span></div>
+          <div class="bline total"><span>Equity</span><span class="mono" id="bs_equity"></span></div>
+        </div>
+      </div>
+      <svg id="d_spark" class="spark" viewBox="0 0 300 56"></svg>
+      <div class="hint">Equity trend, most recent quarters</div>
+    </div>
+    <div class="panel">
+      <h3>Capital &amp; liquidity health</h3>
+      <div class="ratiorow"><div class="rlabel">Capital adequacy ratio<span class="sub">equity ÷ risk-weighted assets, Basel minimum 8%</span></div><div id="d_car"></div></div>
+      <div class="ratiorow"><div class="rlabel">Reserve requirement<span class="sub">cash held vs. CRR% of deposits</span></div><div id="d_crr"></div></div>
+      <div class="ratiorow"><div class="rlabel">Loan-to-deposit ratio<span class="sub">healthy range roughly 60–90%</span></div><div id="d_ldr"></div></div>
+    </div>
+    <div class="panel">
+      <h3>Income statement — last quarter</h3>
+      <div class="desc">Full breakdown, the way an investor would read it.</div>
+      <div class="bline section">Interest income</div>
+      <div class="bline sub"><span>Personal loans</span><span class="mono" id="pl_i_personal"></span></div>
+      <div class="bline sub"><span>Home loans</span><span class="mono" id="pl_i_home"></span></div>
+      <div class="bline sub"><span>Bonds</span><span class="mono" id="pl_i_bonds"></span></div>
+      <div class="bline"><span>Total interest income</span><span class="mono up" id="pl_i_total"></span></div>
+      <div class="bline section">Interest expense</div>
+      <div class="bline sub"><span>Savings deposits</span><span class="mono" id="pl_e_savings"></span></div>
+      <div class="bline sub"><span>Fixed deposits</span><span class="mono" id="pl_e_fd"></span></div>
+      <div class="bline sub"><span>Central bank funding</span><span class="mono" id="pl_e_funding"></span></div>
+      <div class="bline"><span>Total interest expense</span><span class="mono down" id="pl_e_total"></span></div>
+      <div class="bline total"><span>Net interest income</span><span class="mono" id="pl_nii"></span></div>
+      <div class="bline"><span>Provisions for loan losses</span><span class="mono down" id="pl_provisions"></span></div>
+      <div class="bline"><span>Operating expenses</span><span class="mono down" id="pl_opex"></span></div>
+      <div class="bline total"><span>Pre-tax profit</span><span class="mono" id="pl_pretax"></span></div>
+      <div class="bline"><span>Tax (25%)</span><span class="mono down" id="pl_tax"></span></div>
+      <div class="bline total"><span>Net profit</span><span class="mono" id="pl_net"></span></div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="stat"><div class="label">EPS</div><div class="value mono" id="pl_eps">—</div></div>
+        <div class="stat"><div class="label">ROE (annualized)</div><div class="value mono" id="pl_roe">—</div></div>
+        <div class="stat"><div class="label">ROA (annualized)</div><div class="value mono" id="pl_roa">—</div></div>
+      </div>
+      <div class="hint">Net interest margin (annualized): <span id="pl_nim" class="mono"></span></div>
+    </div>
+    <div class="panel">
+      <h3>Quarterly track record</h3>
+      <table><thead><tr><th>Quarter</th><th>Net profit</th><th>EPS</th><th>ROE</th></tr></thead>
+      <tbody id="d_history"></tbody></table>
+      <div id="d_history_empty" class="empty hidden">A quarter passes every hour; results will appear here.</div>
+    </div>
+    <div class="panel">
+      <h3>Recent activity</h3>
+      <table><thead><tr><th>Market</th><th>Side</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+      <tbody id="d_activity"></tbody></table>
+      <div id="d_empty" class="empty hidden">No transactions yet.</div>
+    </div>
+  </section>
+
+  <section id="view-rates" class="view hidden">
+    <div class="pagehead"><div><h1>Rates</h1><p>Your rates move deposits and loan demand each quarter — and a new quarter starts every hour. Price below the market rate and a book grows; price above it and it shrinks.</p></div></div>
+    <div class="grid2">
+      <div class="stat"><div class="label">Savings deposits</div><div class="value mono" id="rt_savbal">—</div></div>
+      <div class="stat"><div class="label">Fixed deposits</div><div class="value mono" id="rt_fdbal">—</div></div>
+      <div class="stat"><div class="label">Personal loan book</div><div class="value mono" id="rt_perbal">—</div></div>
+      <div class="stat"><div class="label">Home loan book</div><div class="value mono" id="rt_homebal">—</div></div>
+    </div>
+    <div class="panel">
+      <h3>Market reference rates</h3>
+      <div class="desc">Roughly what a typical bank charges/pays right now — set your rate below these to grow a book, above to shrink it.</div>
+      <div class="grid2">
+        <div class="stat"><div class="label">Market personal loan rate</div><div class="value mono" id="rt_marketPersonal">—</div></div>
+        <div class="stat"><div class="label">Market home loan rate</div><div class="value mono" id="rt_marketHome">—</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="grid2">
+        <div><label for="r_fd">Fixed deposit rate (%)</label><input id="r_fd" type="number" step="0.1" min="0" max="100"></div>
+        <div><label for="r_savings">Savings rate (%)</label><input id="r_savings" type="number" step="0.1" min="0" max="100"></div>
+        <div><label for="r_personal">Personal loan rate (%)</label><input id="r_personal" type="number" step="0.1" min="0" max="100"></div>
+        <div><label for="r_home">Home loan rate (%)</label><input id="r_home" type="number" step="0.1" min="0" max="100"></div>
+      </div>
+      <div class="hint" id="r_preview"></div>
+      <button class="btn" id="saveRatesBtn" style="margin-top:12px">Save rates</button>
+      <span id="r_savedMsg" class="hint" style="margin-left:10px"></span>
+      <div class="hint">Central bank rate is currently <span id="r_centralHint" class="mono"></span> and adjusts on its own each quarter in response to inflation, so these targets drift over time. Saving a rate does nothing to your balances by itself — it only changes what happens at the <em>next</em> quarter (every hour).</div>
+    </div>
+  </section>
+
+  <section id="view-bonds" class="view hidden">
+    <div class="pagehead"><div><h1>Government Bonds</h1><p>Fixed supply, capped at 50% of your GDP. New capacity only opens up when GDP grows; it never shrinks back. Once issued, bonds trade between players on the order book below.</p></div></div>
+    <div class="grid3">
+      <div class="stat"><div class="label">Face value you hold</div><div class="value mono" id="b_holdings">—</div></div>
+      <div class="stat"><div class="label">Reference price (per 100 face)</div><div class="value mono" id="b_price">—</div></div>
+      <div class="stat"><div class="label">Market value</div><div class="value mono" id="b_mktval">—</div></div>
+      <div class="stat"><div class="label">Issuance cap (50% of GDP)</div><div class="value mono" id="b_cap">—</div></div>
+      <div class="stat"><div class="label">Issued so far</div><div class="value mono" id="b_issued">—</div></div>
+      <div class="stat"><div class="label">Available to subscribe</div><div class="value mono" id="b_available">—</div></div>
+    </div>
+    <div class="panel">
+      <h3>Subscribe to new issuance</h3>
+      <div class="desc">Primary market, at par (100). Limited to whatever's still available under the cap.</div>
+      <div class="row">
+        <input id="b_subqty" type="number" min="0" step="1000" placeholder="Face value amount" style="max-width:220px">
+        <button class="btn buy" id="b_subBtn">Subscribe</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Redeem to treasury</h3>
+      <div class="desc">Sell back at the reference price. Redeemed bonds do not reopen issuance capacity; supply is fixed.</div>
+      <div class="row">
+        <input id="b_redqty" type="number" min="0" step="1000" placeholder="Face value amount" style="max-width:220px">
+        <button class="btn sell" id="b_redBtn">Redeem</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Secondary market order book</h3>
+      <div class="desc">Shared across every signed-in player. Requires being signed in.</div>
+      <div class="bsheet">
+        <div><h4>Bids (buyers)</h4><table><thead><tr><th>Qty</th><th>Price</th></tr></thead><tbody id="bo_bids"></tbody></table></div>
+        <div><h4>Asks (sellers)</h4><table><thead><tr><th>Qty</th><th>Price</th></tr></thead><tbody id="bo_asks"></tbody></table></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <select id="bo_side" style="padding:11px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="BID">Buy (bid)</option>
+          <option value="ASK">Sell (ask)</option>
+        </select>
+        <input id="bo_qty" type="number" min="0" step="1000" placeholder="Quantity" style="max-width:160px">
+        <input id="bo_price" type="number" min="0" step="0.5" placeholder="Price" style="max-width:140px">
+        <button class="btn" id="bo_placeBtn">Place order</button>
+      </div>
+      <div id="bo_msg" class="hint"></div>
+    </div>
+    <div class="panel">
+      <h3>Your open orders</h3>
+      <table><thead><tr><th>Side</th><th>Qty</th><th>Price</th><th></th></tr></thead><tbody id="bo_myorders"></tbody></table>
+      <div id="bo_myorders_empty" class="empty hidden">No open orders.</div>
+    </div>
+    <div class="panel">
+      <h3>Trade history</h3>
+      <table><thead><tr><th>Action</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody id="b_tx"></tbody></table>
+      <div id="b_tx_empty" class="empty hidden">No bond activity yet.</div>
+    </div>
+  </section>
+
+  <section id="view-loans" class="view hidden">
+    <div class="pagehead"><div><h1>Central Bank Funding</h1><p>Short-term liquidity, separate from your customer loan book. Costs the central rate plus a 1% spread and is capped at half your market cap.</p></div></div>
+    <div class="grid2">
+      <div class="stat"><div class="label">Cash reserve</div><div class="value mono" id="l_reserve">—</div></div>
+      <div class="stat"><div class="label">Maximum drawdown</div><div class="value mono" id="l_limit">—</div></div>
+    </div>
+    <div class="panel">
+      <h3>Draw funding</h3>
+      <div class="row">
+        <input id="l_amount" type="number" min="0" step="1000000" placeholder="Amount" style="max-width:260px">
+        <button class="btn" id="l_takeBtn">Draw</button>
+      </div>
+      <div class="hint">This is a liability, not free money — interest expense shows up on your income statement every quarter it's outstanding.</div>
+    </div>
+  </section>
+
+  <section id="view-shares" class="view hidden">
+    <div class="pagehead"><div><h1>Bank Shares</h1><p>Your stock trades on open sentiment, then drifts toward fair value and reacts to earnings each quarter. The number of shares is fixed: they can only change hands between players on the order book below.</p></div></div>
+    <div class="grid3">
+      <div class="stat"><div class="label">Share price</div><div class="value mono" id="s_price">—</div></div>
+      <div class="stat"><div class="label">Shares outstanding</div><div class="value mono" id="s_shares">—</div></div>
+      <div class="stat"><div class="label">Market cap</div><div class="value mono" id="s_mktcap">—</div></div>
+    </div>
+    <div id="sb_own"></div>
+    <div class="panel">
+      <h3>Trade history</h3>
+      <table><thead><tr><th>Action</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+      <tbody id="s_tx"></tbody></table>
+      <div id="s_empty" class="empty hidden">No share transactions yet.</div>
+    </div>
+    <div class="panel">
+      <h3>Dividends</h3>
+      <div class="desc">Pay outside shareholders straight from your reserve. Requires signing in — see the All Banks tab.</div>
+      <div class="grid3">
+        <div class="stat"><div class="label">Current dividend / share</div><div class="value mono" id="s_divps">—</div></div>
+        <div class="stat"><div class="label">Outside shareholders</div><div class="value mono" id="s_holders">—</div></div>
+        <div class="stat"><div class="label">Dividend yield (annualized)</div><div class="value mono" id="s_divyield">—</div></div>
+      </div>
+      <div class="row">
+        <input id="s_divqty" type="number" min="0" step="0.1" placeholder="Dividend per share" style="max-width:220px">
+        <button class="btn" id="s_divBtn">Pay dividend</button>
+      </div>
+      <div id="s_divmsg" class="hint"></div>
+    </div>
+  </section>
+
+  <section id="view-market" class="view hidden">
+    <div class="pagehead"><div><h1>All Banks</h1><p>Every bank on this artifact, live. Sign in to appear here and trade other banks' shares.</p></div></div>
+    <div id="m_signedout" class="banner warn hidden">You're not signed in, so you're invisible on this list and can't trade other banks' shares. Your own bank still works normally in the other tabs.</div>
+    <div class="panel">
+      <h3>Market</h3>
+      <table><thead><tr><th>Bank</th><th>Share price</th><th>Market cap</th><th>Div/share</th><th>Quarter</th><th></th></tr></thead>
+      <tbody id="m_list"></tbody></table>
+      <div id="m_empty" class="empty hidden">No banks published yet — your bank appears here once it has been published.</div>
+      <div class="row hidden" id="m_pager" style="justify-content:space-between;margin-top:10px"></div>
+    </div>
+    <div id="m_trade" class="panel hidden">
+      <h3 id="m_tradeTitle">Trade</h3>
+      <div class="row">
+        <input id="m_qty" type="number" min="0" step="1" placeholder="Number of shares" style="max-width:200px">
+        <button class="btn buy" id="m_buyBtn">Buy</button>
+        <button class="btn sell" id="m_sellBtn">Sell</button>
+      </div>
+      <div id="m_tradeMsg" class="hint"></div>
+    </div>
+    <div class="panel">
+      <h3>Your investments</h3>
+      <table><thead><tr><th>Bank</th><th>Shares</th><th>Avg price</th><th>Current price</th><th>Value</th></tr></thead>
+      <tbody id="m_portfolio"></tbody></table>
+      <div id="m_portfolio_empty" class="empty hidden">You don't hold shares in any other bank yet.</div>
+    </div>
+  </section>
+
+  <section id="view-profile" class="view hidden">
+    <button class="btn secondary" id="pf_back">← All Banks</button>
+    <div class="pagehead" style="margin-top:14px">
+      <div><h1 id="pf_name">Bank</h1><p id="pf_quarter">Q1 2018</p></div>
+    </div>
+    <div class="grid3">
+      <div class="stat"><div class="label">Equity (capital)</div><div class="value mono" id="pf_equity">—</div></div>
+      <div class="stat"><div class="label">Market cap</div><div class="value mono" id="pf_cap">—</div></div>
+      <div class="stat"><div class="label">Share price</div><div class="value mono" id="pf_price">—</div></div>
+      <div class="stat"><div class="label">Inflation</div><div class="value mono" id="pf_inflation">—</div></div>
+      <div class="stat"><div class="label">GDP</div><div class="value mono" id="pf_gdp">—</div></div>
+      <div class="stat"><div class="label">Central bank rate</div><div class="value mono" id="pf_central">—</div></div>
+    </div>
+    <div class="panel">
+      <h3>Balance sheet</h3>
+      <div class="bsheet">
+        <div><h4>Assets</h4>
+          <div class="bline"><span>Cash reserve</span><span class="mono" id="pf_bs_reserve"></span></div>
+          <div class="bline"><span>Personal loan book</span><span class="mono" id="pf_bs_personal"></span></div>
+          <div class="bline"><span>Home loan book</span><span class="mono" id="pf_bs_home"></span></div>
+          <div class="bline"><span>Bonds (market value)</span><span class="mono" id="pf_bs_bonds"></span></div>
+          <div class="bline total"><span>Total assets</span><span class="mono" id="pf_bs_totalassets"></span></div>
+        </div>
+        <div><h4>Liabilities &amp; equity</h4>
+          <div class="bline"><span>Savings deposits</span><span class="mono" id="pf_bs_savings"></span></div>
+          <div class="bline"><span>Fixed deposits</span><span class="mono" id="pf_bs_fd"></span></div>
+          <div class="bline"><span>Central bank funding</span><span class="mono" id="pf_bs_funding"></span></div>
+          <div class="bline total"><span>Equity</span><span class="mono" id="pf_bs_equity"></span></div>
+        </div>
+      </div>
+      <svg id="pf_spark" class="spark" viewBox="0 0 300 56"></svg>
+      <div class="hint">Equity trend, most recent quarters</div>
+    </div>
+    <div class="panel">
+      <h3>Capital &amp; liquidity health</h3>
+      <div class="ratiorow"><div class="rlabel">Capital adequacy ratio</div><div id="pf_car"></div></div>
+      <div class="ratiorow"><div class="rlabel">Reserve requirement</div><div id="pf_crr"></div></div>
+      <div class="ratiorow"><div class="rlabel">Loan-to-deposit ratio</div><div id="pf_ldr"></div></div>
+    </div>
+    <div class="panel">
+      <h3>Income statement — last quarter</h3>
+      <div class="bline"><span>Total interest income</span><span class="mono up" id="pf_pl_income"></span></div>
+      <div class="bline"><span>Total interest expense</span><span class="mono down" id="pf_pl_expense"></span></div>
+      <div class="bline total"><span>Net interest income</span><span class="mono" id="pf_pl_nii"></span></div>
+      <div class="bline"><span>Provisions for loan losses</span><span class="mono down" id="pf_pl_provisions"></span></div>
+      <div class="bline"><span>Operating expenses</span><span class="mono down" id="pf_pl_opex"></span></div>
+      <div class="bline total"><span>Pre-tax profit</span><span class="mono" id="pf_pl_pretax"></span></div>
+      <div class="bline"><span>Tax (25%)</span><span class="mono down" id="pf_pl_tax"></span></div>
+      <div class="bline total"><span>Net profit</span><span class="mono" id="pf_pl_net"></span></div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="stat"><div class="label">EPS</div><div class="value mono" id="pf_pl_eps">—</div></div>
+        <div class="stat"><div class="label">ROE (annualized)</div><div class="value mono" id="pf_pl_roe">—</div></div>
+        <div class="stat"><div class="label">ROA (annualized)</div><div class="value mono" id="pf_pl_roa">—</div></div>
+      </div>
+      <div class="hint">Dividend per share: <span id="pf_divps" class="mono"></span></div>
+    </div>
+    <div id="sb_pf"></div>
+  </section>
+
+  <section id="view-ctc" class="view hidden">
+    <div class="pagehead"><div><h1>CTC Market</h1><p>A speculative token with a fixed total supply. Buy new coins from the issuer at the reference price until they sell out, then trade with other players on the order book. The price is the last trade.</p></div></div>
+    <div class="grid3">
+      <div class="stat"><div class="label">CTC price</div><div class="value mono" id="c_price">—</div></div>
+      <div class="stat"><div class="label">Your holdings</div><div class="value mono" id="c_holdings">—</div></div>
+      <div class="stat"><div class="label">Reserve available</div><div class="value mono" id="c_reserve">—</div></div>
+    </div>
+    <div id="cx"></div>
+    <div class="panel">
+      <h3>Trade history</h3>
+      <table><thead><tr><th>Side</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+      <tbody id="c_tx"></tbody></table>
+      <div id="c_empty" class="empty hidden">No trades yet.</div>
+    </div>
+  </section>
+</main>
+<footer>BankSim is a self-contained demo. All progress lives only in this browser via local storage — clearing site data resets it.</footer>
+</div>
+
+<script src="/static/shim.js"></script>
+<script>
+(function(){
+"use strict";
+const LS_PLAYERS="banksim:players", LS_SESSION="banksim:session";
+const money=x=>Number(x||0).toLocaleString("en-IN",{maximumFractionDigits:2});
+const pct=x=>Number(x||0).toFixed(2)+"%";
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const $=id=>document.getElementById(id);
+
+function hash(s){ let h=0; for(let i=0;i<s.length;i++){h=(Math.imul(31,h)+s.charCodeAt(i))|0;} return String(h); }
+const jpost=(u,b,m)=>fetch(u,{method:m||"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b||{}),keepalive:true}).then(async r=>({ok:r.ok,...(await r.json().catch(()=>({})))}));
+let persistT=null;
+
+function defaultState(username, bankName){
+  return {
+    username, bankName: bankName || (username+"'s Bank"), schema:5,
+    reserve:500000000, dividendPerShare:0,
+    loans:{personal:300000000, home:600000000},
+    deposits:{savings:700000000, fd:500000000},
+    bonds:{holdings:0, price:100, cap:120000000000000, issued:0},
+    funding:0,
+    sharesOutstanding:20000000, stock:{price:100},
+    rates:{fd:7, savings:2.4, personal:15, home:9, central:4.1},
+    inflation:4.5, gdp:240000000000000, quarter:0,
+    multiplier:10, marketCap:2000000000,
+    ctc:{price:415, holdings:0},
+    lastPL:{income:{personal:0,home:0,bonds:0,total:0},expense:{savings:0,fd:0,funding:0,total:0},
+            nii:0,provisions:0,opex:0,pretax:0,tax:0,net:0,eps:0,roe:0,roa:0,nim:0},
+    history:[], transactions:[]
+  };
+}
+function migrate(rec){
+  if(rec && rec.schema===5) return rec;
+  const fresh=defaultState(rec.username, rec.bankName);
+  fresh.passwordHash=rec.passwordHash;
+  return fresh;
+}
+
+let players={};
+let currentUser=null;
+let currentView="dashboard";
+let botTimer=null;
+
+function currentPlayer(){ return players[currentUser]; }
+let dirty=false, saving=false, saveChain=Promise.resolve();
+async function doSave(){
+  const p=currentPlayer(); if(!p) return;
+  saving=true; dirty=false;
+  try{
+    const r=await jpost("/api/state",p,"PUT");
+    if(r.conflict&&currentUser){ players[currentUser]=migrate(r.state); render(); } // server advanced a quarter: take its version
+    else if(r.ok) p._v=r._v;
+  }catch(e){}
+  saving=false;
+}
+function persist(){ dirty=true; clearTimeout(persistT); persistT=setTimeout(()=>{ saveChain=saveChain.then(doSave); },300); }
+async function pullState(){
+  const p=currentPlayer(); if(!p||dirty||saving) return;
+  const r=await fetch("/api/state").then(r=>r.json()).catch(()=>null);
+  if(r&&r.state&&!dirty&&!saving&&r.state._v!==p._v){ players[currentUser]=migrate(r.state); render(); if(currentView==="profile") renderProfile(); }
+}
+
+function equityOf(p){
+  return p.reserve+p.loans.personal+p.loans.home+(p.bonds.holdings*p.bonds.price/100)
+       - p.deposits.savings - p.deposits.fd - p.funding;
+}
+function rwaOf(p){ return p.loans.personal+p.loans.home; }
+
+// ---- Multiplayer: db + user capabilities ----
+let dbc=null, userc=null, myId=null;
+let banksCache={}; // bankUid -> latest public doc data
+let unsubBanks=null, unsubPayouts=null, unsubFills=null, unsubSFills=null;
+
+async function initMultiplayer(){
+  try{ dbc=await claude.use("db"); }catch(e){ dbc=null; }
+  try{ userc=await claude.use("user"); }catch(e){ userc=null; }
+  const uid = userc ? await userc.id() : null;
+  // one id per game account (not per Claude account), so several banks made from the same login stay separate
+  myId = uid || null; // server-verified username
+  $("m_signedout").classList.toggle("hidden", !!(dbc && myId));
+  if(!dbc){ return; }
+  if(unsubBanks) unsubBanks();
+  unsubBanks=dbc.collection("banks").orderBy("marketCap","desc").limit(1000).onSnapshot(snap=>{
+    banksCache={};
+    snap.docs.forEach(d=>{ banksCache[d.id]=d.data(); });
+    if(currentView==="market") renderMarket();
+    if(currentView==="profile") renderProfile();
+  }, ()=>{});
+  subscribeBondBook(); subscribeShareBook(); subscribeCtc();
+  if(myId){
+    syncPublic();
+    if(unsubSFills) unsubSFills();
+    unsubSFills=dbc.collection("shareFills").where("investorId","==",myId).where("claimed","==",false).limit(50).onSnapshot(snap=>{
+      snap.docChanges().forEach(async ch=>{
+        if(ch.type!=="added") return;
+        const d=ch.doc.data(), p=currentPlayer(); if(!p||!d) return;
+        if(d.kind==="CASH"||d.kind==="PRIMARY"){ p.reserve+=d.amount||0; log(p,"Shares",d.kind==="PRIMARY"?"ISSUE":"SELL",d.qty,d.price,d.amount); }
+        else { await addHolding(d.bankId,d.bankName,d.qty,d.price); log(p,"Shares","BUY",d.qty,d.price,d.qty*d.price); }
+        persist(); dbc.doc("shareFills/"+ch.doc.id).update({claimed:true}).catch(()=>{}); render(); renderShareBooks();
+      });
+    }, ()=>{});
+    if(unsubFills) unsubFills();
+    unsubFills=dbc.collection("bondFills").where("investorId","==",myId).where("claimed","==",false).limit(50).onSnapshot(snap=>{
+      snap.docChanges().forEach(ch=>{
+        if(ch.type!=="added") return;
+        const d=ch.doc.data(); const p=currentPlayer();
+        if(!p||!d) return;
+        if(d.kind==="CASH"){ p.reserve+=d.amount||0; log(p,"Bonds","SELL",d.qty,d.price,d.amount); }
+        else { p.bonds.holdings+=d.qty||0; log(p,"Bonds","BUY",d.qty,d.price,(d.qty||0)*(d.price||0)/100); }
+        p.bonds.price=d.price||p.bonds.price;
+        persist();
+        dbc.doc("bondFills/"+ch.doc.id).update({claimed:true}).catch(()=>{});
+        render(); if(currentView==="bonds") renderBondBook();
+      });
+    }, ()=>{});
+    if(unsubPayouts) unsubPayouts();
+    unsubPayouts=dbc.collection("payouts").where("investorId","==",myId).where("claimed","==",false).limit(50).onSnapshot(snap=>{
+      snap.docChanges().forEach(ch=>{
+        if(ch.type!=="added") return;
+        const d=ch.doc.data(); const p=currentPlayer();
+        if(!p||!d) return;
+        p.reserve+=d.amount||0;
+        log(p,"Dividend","RECEIVED",1,d.amount,d.amount);
+        persist();
+        dbc.doc("payouts/"+ch.doc.id).update({claimed:true}).catch(()=>{});
+        if(currentView==="dashboard"||currentView==="market") render();
+      });
+    }, ()=>{});
+  }
+}
+
+async function syncPublic(){
+  if(!dbc||!myId) return;
+  const p=currentPlayer(); if(!p) return;
+  const equity=equityOf(p), rwa=rwaOf(p), totalDeposits=p.deposits.savings+p.deposits.fd;
+  const bondMktVal=p.bonds.holdings*p.bonds.price/100;
+  const totalAssets=p.reserve+p.loans.personal+p.loans.home+bondMktVal;
+  const car=rwa>0?(equity/rwa*100):100;
+  const crrOk=p.reserve>=totalDeposits*0.04;
+  const ldr=totalDeposits>0?((p.loans.personal+p.loans.home)/totalDeposits*100):0;
+  try{
+    await dbc.doc("banks/"+myId).set({
+      bankName:p.bankName, stockPrice:p.stock.price, sharesOutstanding:p.sharesOutstanding,
+      marketCap:p.marketCap, dividendPerShare:p.dividendPerShare||0, quarter:p.quarter,
+      inflation:p.inflation, gdp:p.gdp, centralRate:p.rates.central,
+      equity, totalAssets, reserve:p.reserve, loanPersonal:p.loans.personal, loanHome:p.loans.home,
+      bondMktVal, depositsSavings:p.deposits.savings, depositsFD:p.deposits.fd, funding:p.funding,
+      car, crrOk, ldr, pl:p.lastPL,
+      history:p.history.slice(-12).map(h=>({q:h.q,equity:h.equity})),
+      updatedAt:Date.now()
+    });
+  }catch(e){}
+}
+
+let selectedBank=null;
+// Order books show at most 20 price levels per side (orders at the same price are combined).
+const BOOK_LEVELS=20;
+function bookLevels(orders,side){
+  const m=new Map(); orders.forEach(o=>m.set(o.price,(m.get(o.price)||0)+o.qty));
+  return [...m].map(([price,qty])=>({price,qty})).sort((a,b)=>side==="BID"?b.price-a.price:a.price-b.price).slice(0,BOOK_LEVELS);
+}
+// All Banks list: 30 banks per page.
+const BANKS_PER_PAGE=30; let marketPage=0;
+function renderMarket(){
+  const all=Object.entries(banksCache).sort((a,b)=>(b[1].marketCap||0)-(a[1].marketCap||0));
+  const pages=Math.max(1,Math.ceil(all.length/BANKS_PER_PAGE));
+  marketPage=Math.min(Math.max(0,marketPage),pages-1);
+  const rows=all.slice(marketPage*BANKS_PER_PAGE,(marketPage+1)*BANKS_PER_PAGE);
+  $("m_pager").classList.toggle("hidden",all.length<=BANKS_PER_PAGE);
+  $("m_pager").innerHTML=`<button class="btn secondary" id="m_prev" ${marketPage===0?"disabled":""}>← Previous</button><span class="hint" style="margin:0">Page ${marketPage+1} of ${pages} · ${all.length} banks</span><button class="btn secondary" id="m_next" ${marketPage>=pages-1?"disabled":""}>Next →</button>`;
+  $("m_prev").addEventListener("click",()=>{ marketPage--; renderMarket(); });
+  $("m_next").addEventListener("click",()=>{ marketPage++; renderMarket(); });
+  $("m_empty").classList.toggle("hidden", all.length>0);
+  $("m_list").innerHTML=rows.map(([uid,b])=>`<tr>
+    <td><a class="banklink" data-uid="${uid}">${b.bankName||"Unnamed bank"}</a>${uid===myId?' <span class="pill ok">you</span>':''}</td>
+    <td class="mono">${money(b.stockPrice)}</td>
+    <td class="mono">${money(b.marketCap)}</td>
+    <td class="mono">${money(b.dividendPerShare||0)}</td>
+    <td>${quarterLabel(b.quarter||0)}</td>
+    <td>${uid===myId?'':`<button class="btn secondary" data-buid="${uid}">Trade</button>`}</td>
+  </tr>`).join("");
+  $("m_list").querySelectorAll("button[data-buid]").forEach(btn=>{
+    btn.addEventListener("click",()=>openProfile(btn.dataset.buid));
+  });
+  $("m_list").querySelectorAll("a[data-uid]").forEach(a=>{
+    a.addEventListener("click",()=>openProfile(a.dataset.uid));
+  });
+  renderPortfolio();
+}
+function openTradePanel(){
+  const b=banksCache[selectedBank]; if(!b) return;
+  $("m_trade").classList.remove("hidden");
+  $("m_tradeTitle").textContent="Trade "+(b.bankName||"this bank");
+  $("m_tradeMsg").textContent="Price: "+money(b.stockPrice)+" per share.";
+}
+function openProfile(uid){
+  selectedBank=uid;
+  setView("profile");
+}
+$("pf_back").addEventListener("click",()=>setView("market"));
+async function foreignShareTrade(side,qtyId){
+  if(!dbc||!myId||!selectedBank){ alert("Sign in to trade other banks' shares"); return; }
+  const qty=+$(qtyId).value;
+  if(!qty||qty<=0){ alert("Enter a number of shares"); return; }
+  const bankRef=dbc.doc("banks/"+selectedBank);
+  const snap=await bankRef.get(); if(!snap.exists){ alert("That bank is no longer listed"); return; }
+  const b=snap.data(); const p=currentPlayer();
+  const price=b.stockPrice, total=qty*price;
+  const holdRef=dbc.doc("holdings/"+myId+"_"+selectedBank);
+  const hSnap=await holdRef.get();
+  const cur=hSnap.exists?hSnap.data():{shares:0,avgPrice:0};
+  if(side==="BUY"){
+    if(total>p.reserve){ alert("Insufficient reserve"); return; }
+    p.reserve-=total;
+    const newShares=cur.shares+qty;
+    const newAvg=((cur.shares*cur.avgPrice)+total)/newShares;
+    await holdRef.set({investorId:myId,bankId:selectedBank,bankName:b.bankName,shares:newShares,avgPrice:newAvg,updatedAt:Date.now()});
+    const newPrice=Math.max(0.01,price*(1+Math.min(qty/Math.max(1,b.sharesOutstanding)*0.5,.05)));
+    await bankRef.update({stockPrice:newPrice,marketCap:newPrice*b.sharesOutstanding});
+    log(p,"Market","BUY",qty,price,total);
+  } else {
+    if(qty>cur.shares){ alert("You don't hold that many shares of this bank"); return; }
+    p.reserve+=total;
+    const remaining=cur.shares-qty;
+    if(remaining<=0) await holdRef.delete();
+    else await holdRef.set({investorId:myId,bankId:selectedBank,bankName:b.bankName,shares:remaining,avgPrice:cur.avgPrice,updatedAt:Date.now()});
+    const newPrice=Math.max(0.01,price*Math.max(.01,1-Math.min(qty/Math.max(1,b.sharesOutstanding)*0.5,.05)));
+    await bankRef.update({stockPrice:newPrice,marketCap:newPrice*b.sharesOutstanding});
+    log(p,"Market","SELL",qty,price,total);
+  }
+  persist(); $(qtyId).value=""; render();
+  if(currentView==="profile") renderProfile();
+}
+function renderProfile(){
+  const b=banksCache[selectedBank]; if(!b){ return; }
+  $("pf_name").textContent=b.bankName||"Unnamed bank";
+  $("pf_quarter").textContent=quarterLabel(b.quarter||0);
+  $("pf_equity").textContent=money(b.equity);
+  $("pf_cap").textContent=money(b.marketCap);
+  $("pf_price").textContent=money(b.stockPrice);
+  $("pf_inflation").textContent=pct(b.inflation||0);
+  $("pf_gdp").textContent=money(b.gdp||0);
+  $("pf_central").textContent=pct(b.centralRate||0);
+  $("pf_bs_reserve").textContent=money(b.reserve||0);
+  $("pf_bs_personal").textContent=money(b.loanPersonal||0);
+  $("pf_bs_home").textContent=money(b.loanHome||0);
+  $("pf_bs_bonds").textContent=money(b.bondMktVal||0);
+  $("pf_bs_totalassets").textContent=money(b.totalAssets||0);
+  $("pf_bs_savings").textContent=money(b.depositsSavings||0);
+  $("pf_bs_fd").textContent=money(b.depositsFD||0);
+  $("pf_bs_funding").textContent=money(b.funding||0);
+  $("pf_bs_equity").textContent=money(b.equity||0);
+  const carPill=(b.car||0)>=10.5?"ok":((b.car||0)>=8?"warn":"bad");
+  $("pf_car").innerHTML=`<span class="pill ${carPill}">${(b.car||0).toFixed(1)}%</span>`;
+  $("pf_crr").innerHTML=`<span class="pill ${b.crrOk?"ok":"bad"}">${b.crrOk?"Compliant":"Shortfall"}</span>`;
+  const ldrPill=((b.ldr||0)>=60&&(b.ldr||0)<=90)?"ok":"warn";
+  $("pf_ldr").innerHTML=`<span class="pill ${ldrPill}">${(b.ldr||0).toFixed(1)}%</span>`;
+  const pl=b.pl||{};
+  $("pf_pl_income").textContent="+"+money(pl.income?pl.income.total:0);
+  $("pf_pl_expense").textContent="-"+money(pl.expense?pl.expense.total:0);
+  $("pf_pl_nii").textContent=money(pl.nii||0);
+  $("pf_pl_provisions").textContent="-"+money(pl.provisions||0);
+  $("pf_pl_opex").textContent="-"+money(pl.opex||0);
+  $("pf_pl_pretax").textContent=money(pl.pretax||0);
+  $("pf_pl_tax").textContent="-"+money(pl.tax||0);
+  const netEl=$("pf_pl_net"); netEl.textContent=((pl.net||0)>=0?"+":"")+money(pl.net||0); netEl.className="mono "+((pl.net||0)>=0?"up":"down");
+  $("pf_pl_eps").textContent=money(pl.eps||0);
+  $("pf_pl_roe").textContent=pct(pl.roe||0);
+  $("pf_pl_roa").textContent=pct(pl.roa||0);
+  const hist=(b.history||[]).map(h=>h.equity);
+  $("pf_spark").innerHTML=sparkline(hist.length?hist:[b.equity||0,b.equity||0]);
+  $("pf_divps").textContent=money(b.dividendPerShare||0);
+  renderShareBooks();
+}
+async function renderPortfolio(){
+  if(!dbc||!myId){ $("m_portfolio_empty").classList.remove("hidden"); $("m_portfolio").innerHTML=""; return; }
+  const snap=await dbc.collection("holdings").where("investorId","==",myId).limit(50).get();
+  const rows=snap.docs.map(d=>d.data());
+  $("m_portfolio_empty").classList.toggle("hidden", rows.length>0);
+  $("m_portfolio").innerHTML=rows.map(r=>{
+    const live=banksCache[r.bankId]; const curPrice=live?live.stockPrice:r.avgPrice;
+    return `<tr><td>${r.bankName}</td><td class="mono">${money(r.shares)}</td><td class="mono">${money(r.avgPrice)}</td><td class="mono">${money(curPrice)}</td><td class="mono">${money(r.shares*curPrice)}</td></tr>`;
+  }).join("");
+}
+
+// ---- Share order book (fixed share supply) ----
+let shareBookCache=[], unsubShareBook=null;
+function subscribeShareBook(){
+  if(!dbc) return; if(unsubShareBook) unsubShareBook();
+  unsubShareBook=dbc.collection("shareOrders").orderBy("price","asc").limit(500).onSnapshot(snap=>{
+    shareBookCache=snap.docs.map(d=>({id:d.id,...d.data()})); renderShareBooks();
+  },()=>{});
+}
+async function addHolding(bankId,bankName,qty,price){
+  const ref=dbc.doc("holdings/"+myId+"_"+bankId), sn=await ref.get();
+  const cur=sn.exists?sn.data():{shares:0,avgPrice:0}, n=cur.shares+qty;
+  await ref.set({investorId:myId,bankId,bankName,shares:n,avgPrice:((cur.shares*cur.avgPrice)+qty*price)/n,updatedAt:Date.now()});
+}
+async function removeHolding(bankId,qty){
+  const ref=dbc.doc("holdings/"+myId+"_"+bankId), sn=await ref.get(); if(!sn.exists) return;
+  const c=sn.data(), left=c.shares-qty;
+  if(left<=0.0001) await ref.delete(); else await ref.set({...c,shares:left,updatedAt:Date.now()});
+}
+const SB={so:()=>myId, sp:()=>selectedBank};
+function sbHTML(pre){return `<div class="panel"><h3>Share order book <span id="${pre}_name" class="hint"></span></h3>
+<div class="desc" id="${pre}_info"></div>
+<div id="${pre}_prim" class="hint" style="margin:8px 0"></div>
+<div class="row" id="${pre}_subrow"><input id="${pre}_subqty" type="number" min="0" step="1" placeholder="Shares to buy from the bank" style="max-width:220px"><button class="btn buy" id="${pre}_subbtn">Buy from bank</button></div>
+<div class="bsheet"><div><h4>Bids (buyers)</h4><table><thead><tr><th>Qty</th><th>Price</th></tr></thead><tbody id="${pre}_bids"></tbody></table></div>
+<div><h4>Asks (sellers)</h4><table><thead><tr><th>Qty</th><th>Price</th></tr></thead><tbody id="${pre}_asks"></tbody></table></div></div>
+<div class="row" style="margin-top:14px"><select id="${pre}_side" style="padding:11px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text)"><option value="BID">Buy (bid)</option><option value="ASK">Sell (ask)</option></select>
+<input id="${pre}_qty" type="number" min="0" step="1" placeholder="Shares" style="max-width:160px"><input id="${pre}_price" type="number" min="0" step="0.01" placeholder="Price per share" style="max-width:160px">
+<button class="btn" id="${pre}_btn">Place order</button></div><div class="hint" id="${pre}_msg"></div>
+<h4 style="margin-top:14px">Your open orders</h4><table><tbody id="${pre}_mine"></tbody></table></div>`;}
+["so","sp"].forEach(pre=>{
+  $(pre==="so"?"sb_own":"sb_pf").innerHTML=sbHTML(pre);
+  $(pre+"_btn").addEventListener("click",()=>placeShareOrder(pre));
+  $(pre+"_subbtn").addEventListener("click",()=>subscribeShares(pre));
+});
+async function renderShareBooks(){
+  const pre=currentView==="shares"?"so":currentView==="profile"?"sp":null; if(!pre) return;
+  const bankId=SB[pre](); if(!bankId) return;
+  const rows=shareBookCache.filter(o=>o.bankId===bankId);
+  const bids=rows.filter(o=>o.side==="BID").sort((a,b)=>b.price-a.price), asks=rows.filter(o=>o.side==="ASK").sort((a,b)=>a.price-b.price);
+  const tr=o=>`<tr><td class="mono">${money(o.qty)}</td><td class="mono">${money(o.price)}</td></tr>`;
+  $(pre+"_bids").innerHTML=bookLevels(bids,"BID").map(tr).join("")||'<tr><td colspan=2 class="empty">No bids</td></tr>';
+  $(pre+"_asks").innerHTML=bookLevels(asks,"ASK").map(tr).join("")||'<tr><td colspan=2 class="empty">No asks</td></tr>';
+  const mine=rows.filter(o=>o.investorId===myId);
+  $(pre+"_mine").innerHTML=mine.map(o=>`<tr><td><span class="pill ${o.side==='BID'?'buy':'sell'}">${o.side}</span></td><td class="mono">${money(o.qty)}</td><td class="mono">${money(o.price)}</td><td><button class="btn secondary" data-c="${o.id}">Cancel</button></td></tr>`).join("");
+  $(pre+"_mine").querySelectorAll("button[data-c]").forEach(b=>b.addEventListener("click",()=>cancelShareOrder(b.dataset.c)));
+  if(!dbc||!myId){ $(pre+"_info").textContent="Sign in to trade shares."; return; }
+  const pool=await primaryPool(bankId), own=bankId===myId, pr=own?currentPlayer().stock.price:(banksCache[bankId]||{}).stockPrice||0;
+  $(pre+"_subrow").classList.toggle("hidden",own||pool<=0);
+  $(pre+"_prim").textContent=pool>0?(own?"Unsold shares the market can buy directly from your bank: ":"Available directly from the bank at "+money(pr)+" per share: ")+money(pool)+(own?" (sold at your current share price).":" shares."):"All shares are sold. Trade them on the order book below.";
+  const info=await shareAvail(bankId);
+  $(pre+"_info").textContent=(bankId===myId?"Fixed supply: "+money(currentPlayer().sharesOutstanding)+" shares. Your unsold shares available to offer: "+money(info):"Fixed supply. You hold "+money(info)+" shares of this bank.");
+}
+async function shareAvail(bankId){
+  if(bankId!==myId){ const sn=await dbc.doc("holdings/"+myId+"_"+bankId).get(); return sn.exists?sn.data().shares:0; }
+  const sn=await dbc.collection("holdings").where("bankId","==",myId).limit(200).get();
+  const held=sn.docs.reduce((t,d)=>t+d.data().shares,0);
+  const open=shareBookCache.filter(o=>o.bankId===myId&&o.investorId===myId&&o.side==="ASK").reduce((t,o)=>t+o.qty,0);
+  return Math.max(0,currentPlayer().sharesOutstanding-held-open);
+}
+async function primaryPool(bankId){
+  const own=bankId===myId, total=own?currentPlayer().sharesOutstanding:(banksCache[bankId]||{}).sharesOutstanding||0;
+  const sn=await dbc.collection("holdings").where("bankId","==",bankId).limit(200).get();
+  const held=sn.docs.reduce((t,d)=>t+d.data().shares,0);
+  const open=shareBookCache.filter(o=>o.bankId===bankId&&o.investorId===bankId&&o.side==="ASK").reduce((t,o)=>t+o.qty,0);
+  return Math.max(0,total-held-open);
+}
+async function subscribeShares(pre){
+  const msg=$(pre+"_msg"), bankId=SB[pre](), p=currentPlayer(), qty=+$(pre+"_subqty").value;
+  if(!dbc||!myId||!bankId||bankId===myId){ msg.textContent="Sign in and pick another bank to buy from."; return; }
+  if(!qty||qty<=0){ msg.textContent="Enter a number of shares."; return; }
+  const b=banksCache[bankId]; if(!b){ msg.textContent="That bank is no longer listed."; return; }
+  const pool=await primaryPool(bankId);
+  if(qty>pool+0.0001){ msg.textContent="Only "+money(pool)+" shares are left at the bank. After that, use the order book."; return; }
+  const price=b.stockPrice, cost=qty*price;
+  if(cost>p.reserve){ msg.textContent="Insufficient reserve."; return; }
+  p.reserve-=cost; await addHolding(bankId,b.bankName,qty,price); log(p,"Shares","BUY",qty,price,cost);
+  await dbc.collection("shareFills").add({investorId:bankId,kind:"PRIMARY",amount:cost,qty,price,claimed:false,createdAt:Date.now()}).catch(()=>{});
+  persist(); $(pre+"_subqty").value=""; render(); renderShareBooks(); msg.textContent="Bought "+money(qty)+" shares from the bank.";
+}
+async function cancelShareOrder(id){
+  const ref=dbc.doc("shareOrders/"+id), sn=await ref.get(); if(!sn.exists) return;
+  const o=sn.data(), p=currentPlayer(); if(o.investorId!==myId) return;
+  if(o.side==="BID") p.reserve+=o.qty*o.price; else if(o.bankId!==myId) await addHolding(o.bankId,o.bankName||"",o.qty,o.price);
+  await ref.delete().catch(()=>{}); persist(); render(); renderShareBooks();
+}
+async function placeShareOrder(pre){
+  const msg=$(pre+"_msg"), bankId=SB[pre]();
+  if(!dbc||!myId||!bankId){ msg.textContent="Sign in to trade shares."; return; }
+  const side=$(pre+"_side").value, qty=+$(pre+"_qty").value, price=+$(pre+"_price").value, p=currentPlayer();
+  if(!qty||qty<=0||!price||price<=0){ msg.textContent="Enter a valid quantity and price."; return; }
+  const own=bankId===myId, bankName=own?p.bankName:(banksCache[bankId]||{}).bankName||"";
+  if(own&&side==="BID"){ msg.textContent="Your bank can't buy its own shares: supply is fixed."; return; }
+  if(side==="BID"&&qty*price>p.reserve){ msg.textContent="Insufficient reserve to cover this bid."; return; }
+  if(side==="ASK"){ const av=await shareAvail(bankId); if(qty>av+0.0001){ msg.textContent="You only have "+money(av)+" shares to offer."; return; } if(!own) await removeHolding(bankId,qty); }
+  const opp=side==="BID"?"ASK":"BID";
+  const snap=await dbc.collection("shareOrders").where("bankId","==",bankId).where("side","==",opp).limit(200).get();
+  const resting=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>opp==="ASK"?a.price-b.price:b.price-a.price);
+  let remaining=qty;
+  for(const ro of resting){
+    if(remaining<=0) break;
+    if(!(side==="BID"?price>=ro.price:price<=ro.price)) break;
+    if(ro.investorId===myId) continue;
+    const fq=Math.min(remaining,ro.qty), fp=ro.price, amt=fq*fp, ref=dbc.doc("shareOrders/"+ro.id);
+    if(ro.qty-fq<=0.0001) await ref.delete().catch(()=>{}); else await ref.update({qty:ro.qty-fq}).catch(()=>{});
+    if(side==="BID"){ p.reserve-=amt; await addHolding(bankId,bankName,fq,fp); log(p,"Shares","BUY",fq,fp,amt);
+      await dbc.collection("shareFills").add({investorId:ro.investorId,kind:"CASH",amount:amt,qty:fq,price:fp,claimed:false,createdAt:Date.now()}).catch(()=>{});
+    } else { p.reserve+=amt; log(p,"Shares","SELL",fq,fp,amt);
+      await dbc.collection("shareFills").add({investorId:ro.investorId,kind:"SHARES",bankId,bankName,qty:fq,price:fp,claimed:false,createdAt:Date.now()}).catch(()=>{});
+    }
+    remaining-=fq;
+  }
+  if(remaining>0.0001){ if(side==="BID") p.reserve-=remaining*price;
+    await dbc.collection("shareOrders").add({bankId,bankName,investorId:myId,side,qty:remaining,price,createdAt:Date.now()}).catch(()=>{}); }
+  persist(); $(pre+"_qty").value=""; $(pre+"_price").value=""; render(); renderShareBooks(); msg.textContent="Order processed.";
+}
+
+// ---- CTC market: fixed supply, primary sale, order book ----
+const CTC_SUPPLY=1000000;
+let ctcOrders=[], ctcState={sold:0,price:415}, unsubCtc=null, unsubCtcState=null, unsubCFills=null;
+function stopCtc(){ [unsubCtc,unsubCtcState,unsubCFills].forEach(f=>{ if(f) f(); }); unsubCtc=unsubCtcState=unsubCFills=null; }
+function subscribeCtc(){
+  stopCtc(); if(!dbc||!myId) return;
+  unsubCtc=dbc.collection("ctcOrders").orderBy("price","asc").limit(300).onSnapshot(sn=>{ ctcOrders=sn.docs.map(d=>({id:d.id,...d.data()})); renderCtcBook(); },()=>{});
+  unsubCtcState=dbc.collection("ctcState").limit(1).onSnapshot(sn=>{
+    const d=sn.docs[0]; if(d) ctcState={...ctcState,...d.data()};
+    const p=currentPlayer(); if(p){ p.ctc.price=ctcState.price; persist(); }
+    renderCtcBook(); if(currentView==="ctc"||currentView==="dashboard") render();
+  },()=>{});
+  unsubCFills=dbc.collection("ctcFills").where("investorId","==",myId).where("claimed","==",false).limit(50).onSnapshot(sn=>{
+    sn.docChanges().forEach(ch=>{
+      if(ch.type!=="added") return; const d=ch.doc.data(), p=currentPlayer(); if(!p||!d) return;
+      if(d.kind==="CASH"){ p.reserve+=d.amount||0; log(p,"CTC","SELL",d.qty,d.price,d.amount); }
+      else { p.ctc.holdings+=d.qty||0; log(p,"CTC","BUY",d.qty,d.price,d.qty*d.price); }
+      persist(); dbc.doc("ctcFills/"+ch.doc.id).update({claimed:true}).catch(()=>{}); render(); renderCtcBook();
+    });
+  },()=>{});
+}
+async function saveCtcState(patch){ ctcState={...ctcState,...patch}; await dbc.doc("ctcState/main").set({sold:ctcState.sold,price:ctcState.price}).catch(()=>{}); }
+$("cx").innerHTML=`<div class="panel"><h3>CTC order book</h3><div class="desc" id="cx_info"></div>
+<div class="row" id="cx_subrow"><input id="cx_subqty" type="number" min="0" step="1" placeholder="Coins to buy from issuer" style="max-width:220px"><button class="btn buy" id="cx_subbtn">Buy from issuer</button></div>
+<div class="bsheet" style="margin-top:12px"><div><h4>Bids (buyers)</h4><table><thead><tr><th>Qty</th><th>Price</th></tr></thead><tbody id="cx_bids"></tbody></table></div>
+<div><h4>Asks (sellers)</h4><table><thead><tr><th>Qty</th><th>Price</th></tr></thead><tbody id="cx_asks"></tbody></table></div></div>
+<div class="row" style="margin-top:14px"><select id="cx_side" style="padding:11px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text)"><option value="BID">Buy (bid)</option><option value="ASK">Sell (ask)</option></select>
+<input id="cx_qty" type="number" min="0" step="1" placeholder="Quantity" style="max-width:160px"><input id="cx_price" type="number" min="0" step="0.01" placeholder="Price" style="max-width:140px"><button class="btn" id="cx_btn">Place order</button></div>
+<div class="hint" id="cx_msg"></div><h4 style="margin-top:14px">Your open orders</h4><table><tbody id="cx_mine"></tbody></table></div>`;
+$("cx_btn").addEventListener("click",placeCtcOrder); $("cx_subbtn").addEventListener("click",buyCtcPrimary);
+function renderCtcBook(){
+  if(currentView!=="ctc"||!$("cx_bids")) return;
+  const bids=ctcOrders.filter(o=>o.side==="BID").sort((a,b)=>b.price-a.price), asks=ctcOrders.filter(o=>o.side==="ASK").sort((a,b)=>a.price-b.price);
+  const tr=o=>`<tr><td class="mono">${money(o.qty)}</td><td class="mono">${money(o.price)}</td></tr>`;
+  $("cx_bids").innerHTML=bookLevels(bids,"BID").map(tr).join("")||'<tr><td colspan=2 class="empty">No bids</td></tr>';
+  $("cx_asks").innerHTML=bookLevels(asks,"ASK").map(tr).join("")||'<tr><td colspan=2 class="empty">No asks</td></tr>';
+  const mine=ctcOrders.filter(o=>o.investorId===myId);
+  $("cx_mine").innerHTML=mine.map(o=>`<tr><td><span class="pill ${o.side==='BID'?'buy':'sell'}">${o.side}</span></td><td class="mono">${money(o.qty)}</td><td class="mono">${money(o.price)}</td><td><button class="btn secondary" data-c="${o.id}">Cancel</button></td></tr>`).join("");
+  $("cx_mine").querySelectorAll("button[data-c]").forEach(b=>b.addEventListener("click",()=>cancelCtcOrder(b.dataset.c)));
+  const left=Math.max(0,CTC_SUPPLY-ctcState.sold);
+  $("cx_subrow").classList.toggle("hidden",left<=0||!myId);
+  $("cx_info").textContent=!myId?"Sign in to trade CTC.":"Fixed supply "+money(CTC_SUPPLY)+" coins. "+(left>0?money(left)+" still available from the issuer at "+money(ctcState.price)+" each.":"All coins are sold. Trade them on the order book.");
+}
+async function buyCtcPrimary(){
+  const msg=$("cx_msg"), p=currentPlayer(), qty=+$("cx_subqty").value;
+  if(!dbc||!myId){ msg.textContent="Sign in to buy."; return; }
+  if(!qty||qty<=0){ msg.textContent="Enter a quantity."; return; }
+  const sn=await dbc.doc("ctcState/main").get(); if(sn.exists) ctcState={...ctcState,...sn.data()};
+  const left=CTC_SUPPLY-ctcState.sold; if(qty>left){ msg.textContent="Only "+money(left)+" coins left at the issuer."; return; }
+  const cost=qty*ctcState.price; if(cost>p.reserve){ msg.textContent="Insufficient reserve."; return; }
+  p.reserve-=cost; p.ctc.holdings+=qty; log(p,"CTC","BUY",qty,ctcState.price,cost);
+  await saveCtcState({sold:ctcState.sold+qty}); persist(); $("cx_subqty").value=""; render(); renderCtcBook(); msg.textContent="Bought "+money(qty)+" CTC from the issuer.";
+}
+async function cancelCtcOrder(id){
+  const ref=dbc.doc("ctcOrders/"+id), sn=await ref.get(); if(!sn.exists) return;
+  const o=sn.data(), p=currentPlayer(); if(o.investorId!==myId) return;
+  if(o.side==="BID") p.reserve+=o.qty*o.price; else p.ctc.holdings+=o.qty;
+  await ref.delete().catch(()=>{}); persist(); render(); renderCtcBook();
+}
+async function placeCtcOrder(){
+  const msg=$("cx_msg"), p=currentPlayer();
+  if(!dbc||!myId){ msg.textContent="Sign in to trade CTC."; return; }
+  const side=$("cx_side").value, qty=+$("cx_qty").value, price=+$("cx_price").value;
+  if(!qty||qty<=0||!price||price<=0){ msg.textContent="Enter a valid quantity and price."; return; }
+  if(side==="BID"&&qty*price>p.reserve){ msg.textContent="Insufficient reserve to cover this bid."; return; }
+  if(side==="ASK"&&qty>p.ctc.holdings){ msg.textContent="You don't hold that much CTC."; return; }
+  if(side==="ASK") p.ctc.holdings-=qty;
+  const opp=side==="BID"?"ASK":"BID";
+  const snap=await dbc.collection("ctcOrders").where("side","==",opp).limit(200).get();
+  const resting=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>opp==="ASK"?a.price-b.price:b.price-a.price);
+  let remaining=qty, last=null;
+  for(const ro of resting){
+    if(remaining<=0) break;
+    if(!(side==="BID"?price>=ro.price:price<=ro.price)) break;
+    if(ro.investorId===myId) continue;
+    const fq=Math.min(remaining,ro.qty), fp=ro.price, amt=fq*fp, ref=dbc.doc("ctcOrders/"+ro.id);
+    if(ro.qty-fq<=0.0001) await ref.delete().catch(()=>{}); else await ref.update({qty:ro.qty-fq}).catch(()=>{});
+    if(side==="BID"){ p.reserve-=amt; p.ctc.holdings+=fq; log(p,"CTC","BUY",fq,fp,amt);
+      await dbc.collection("ctcFills").add({investorId:ro.investorId,kind:"CASH",amount:amt,qty:fq,price:fp,claimed:false,createdAt:Date.now()}).catch(()=>{});
+    } else { p.reserve+=amt; log(p,"CTC","SELL",fq,fp,amt);
+      await dbc.collection("ctcFills").add({investorId:ro.investorId,kind:"COINS",qty:fq,price:fp,claimed:false,createdAt:Date.now()}).catch(()=>{});
+    }
+    last=fp; remaining-=fq;
+  }
+  if(remaining>0.0001){ if(side==="BID") p.reserve-=remaining*price;
+    await dbc.collection("ctcOrders").add({investorId:myId,side,qty:remaining,price,createdAt:Date.now()}).catch(()=>{}); }
+  if(last!==null){ p.ctc.price=last; await saveCtcState({price:last}); }
+  persist(); $("cx_qty").value=""; $("cx_price").value=""; render(); renderCtcBook(); msg.textContent="Order processed.";
+}
+
+$("s_divBtn").addEventListener("click",async()=>{
+  const p=currentPlayer(); const dps=+$("s_divqty").value;
+  const msg=$("s_divmsg");
+  if(isNaN(dps)||dps<0){ msg.textContent="Enter a valid amount per share."; return; }
+  if(!dbc||!myId){ msg.textContent="Sign in (see All Banks tab) to pay outside shareholders."; return; }
+  const snap=await dbc.collection("holdings").where("bankId","==",myId).limit(200).get();
+  const holders=snap.docs.map(d=>d.data());
+  const totalHeld=holders.reduce((s,h)=>s+h.shares,0);
+  const cost=dps*totalHeld;
+  if(cost>p.reserve){ msg.textContent="Insufficient reserve to cover this dividend ("+money(cost)+" needed)."; return; }
+  p.reserve-=cost; p.dividendPerShare=dps;
+  persist(); syncPublic();
+  for(const h of holders){
+    await dbc.doc("payouts/"+myId+"_"+p.quarter+"_"+h.investorId).set({
+      investorId:h.investorId, bankId:myId, bankName:p.bankName, amount:h.shares*dps, quarter:p.quarter, claimed:false, createdAt:Date.now()
+    });
+  }
+  log(p,"Dividend","PAID",totalHeld,dps,cost);
+  persist(); msg.textContent="Paid "+money(cost)+" across "+holders.length+" shareholder(s).";
+  render();
+});
+
+$("toRegister").addEventListener("click",e=>{ if(e.target.tagName==="A"){ $("loginForm").classList.add("hidden"); $("registerForm").classList.remove("hidden"); $("toRegister").classList.add("hidden"); $("toLogin").classList.remove("hidden"); $("authError").classList.add("hidden"); }});
+$("toLogin").addEventListener("click",e=>{ if(e.target.tagName==="A"){ $("registerForm").classList.add("hidden"); $("loginForm").classList.remove("hidden"); $("toLogin").classList.add("hidden"); $("toRegister").classList.remove("hidden"); $("authError").classList.add("hidden"); }});
+function showAuthError(msg){ const e=$("authError"); e.textContent=msg; e.classList.remove("hidden"); }
+
+$("loginForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const u=$("li_user").value.trim(), p=$("li_pass").value;
+  const r=await jpost("/api/login",{username:u,password:p});
+  if(!r.ok){ showAuthError(r.error||"Invalid username or password"); return; }
+  players={}; players[u]=migrate(r.state); currentUser=u; enterApp();
+});
+$("registerForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const u=$("r_user").value.trim(), p=$("r_pass").value, bank=$("r_bank").value.trim();
+  if(!u||!p){ showAuthError("Username and password are required"); return; }
+  await syncClock();
+  const st=defaultState(u,bank); st.quarter=globalQ(); st.lastGlobalQ=globalQ(); // new banks join at the current universal quarter
+  const r=await jpost("/api/register",{username:u,password:p,state:st});
+  if(!r.ok){ showAuthError(r.error||"Could not create account"); return; }
+  players={}; players[u]=st; currentUser=u; enterApp();
+});
+$("logoutBtn").addEventListener("click",()=>{
+  doSave();
+  jpost("/api/logout"); currentUser=null; players={};
+  if(botTimer) clearInterval(botTimer);
+  if(unsubBanks){ unsubBanks(); unsubBanks=null; }
+  if(unsubPayouts){ unsubPayouts(); unsubPayouts=null; }
+  if(unsubFills){ unsubFills(); unsubFills=null; } if(unsubSFills){ unsubSFills(); unsubSFills=null; }
+  if(unsubBondBook){ unsubBondBook(); unsubBondBook=null; } if(unsubShareBook){ unsubShareBook(); unsubShareBook=null; }
+  stopCtc(); myId=null;
+  banksCache={}; selectedBank=null;
+  $("app").classList.add("hidden"); $("authScreen").classList.remove("hidden");
+  $("loginForm").reset(); $("registerForm").reset();
+});
+
+document.getElementById("tabs").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-view]"); if(!b) return; setView(b.dataset.view);
+});
+function setView(v){
+  currentView=v;
+  document.querySelectorAll(".view").forEach(el=>el.classList.add("hidden"));
+  $("view-"+v).classList.remove("hidden");
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.view===v));
+  render();
+  if(v==="market") renderMarket();
+  if(v==="profile") renderProfile();
+  if(v==="bonds") renderBondBook();
+  if(v==="shares") renderShareBooks();
+  if(v==="ctc") renderCtcBook();
+}
+
+function log(p,market,side,qty,price,total){
+  p.transactions.unshift({market,side,quantity:qty,price,total});
+  p.transactions=p.transactions.slice(0,30);
+}
+
+function advanceQuarter(){
+  const p=currentPlayer();
+  const prevCentral=p.rates.central;
+  const prevLoans=p.loans.personal+p.loans.home;
+  const prevNet=p.lastPL.net||0;
+  const totalAssetsPre=p.reserve+p.loans.personal+p.loans.home+(p.bonds.holdings*p.bonds.price/100);
+
+  const incomePersonal=p.loans.personal*p.rates.personal/400;
+  const incomeHome=p.loans.home*p.rates.home/400;
+  const incomeBonds=p.bonds.holdings*p.rates.central/400;
+  const incomeTotal=incomePersonal+incomeHome+incomeBonds;
+
+  const expSavings=p.deposits.savings*p.rates.savings/400;
+  const expFD=p.deposits.fd*p.rates.fd/400;
+  const expFunding=p.funding*(p.rates.central+1)/400;
+  const expTotal=expSavings+expFD+expFunding;
+
+  const nii=incomeTotal-expTotal;
+
+  const personalRisk=clamp(0.4+Math.max(0,(p.rates.central+6-p.rates.personal))*0.15+Math.max(0,p.inflation-6)*0.1,0.2,9);
+  const homeRisk=clamp(0.2+Math.max(0,(p.rates.central+3-p.rates.home))*0.10+Math.max(0,p.inflation-6)*0.05,0.1,5);
+  const personalWO=p.loans.personal*personalRisk/100;
+  const homeWO=p.loans.home*homeRisk/100;
+  const provisions=personalWO+homeWO;
+  p.loans.personal=Math.max(0,p.loans.personal-personalWO);
+  p.loans.home=Math.max(0,p.loans.home-homeWO);
+
+  const opex=totalAssetsPre*0.0015;
+  const pretax=nii-provisions-opex;
+  const tax=pretax>0?pretax*0.25:0;
+  const net=pretax-tax;
+  p.reserve+=net;
+
+  if(p.bonds.holdings>0) log(p,"Bonds","COUPON",p.bonds.holdings,prevCentral,incomeBonds);
+
+  const savSpread=p.rates.savings-p.rates.central, fdSpread=p.rates.fd-p.rates.central;
+  p.deposits.savings=Math.max(0,p.deposits.savings*(1+clamp(savSpread*0.02,-0.06,0.08)));
+  p.deposits.fd=Math.max(0,p.deposits.fd*(1+clamp(fdSpread*0.02,-0.06,0.08)));
+
+  const perSpread=(p.rates.central+9)-p.rates.personal, homeSpread=(p.rates.central+6)-p.rates.home;
+  p.loans.personal=Math.max(0,p.loans.personal*(1+clamp(perSpread*0.02,-0.10,0.15)));
+  p.loans.home=Math.max(0,p.loans.home*(1+clamp(homeSpread*0.02,-0.10,0.15)));
+
+  const newLoans=p.loans.personal+p.loans.home;
+  const loanGrowth=prevLoans>0?(newLoans-prevLoans)/prevLoans:0;
+  p.gdp*=1+clamp(0.005+loanGrowth*0.3,-0.01,0.03);
+  p.bonds.cap=Math.max(p.bonds.cap,p.gdp*0.5); // new bonds only open up when GDP rises above its previous peak
+  p.inflation=clamp(p.inflation+clamp(loanGrowth*8-(p.rates.central-4)*0.15+(Math.random()*0.4-0.2),-1.5,1.5),0,25);
+
+  p.rates.central=clamp(p.rates.central+clamp((p.inflation-4)*0.08+(Math.random()*0.1-0.05),-0.4,0.4),0.5,16);
+  const rateDelta=p.rates.central-prevCentral;
+  p.bonds.price=clamp(p.bonds.price*(1-rateDelta*0.04),60,140);
+
+  const equityPost=equityOf(p);
+  const roeAnnual=equityPost>0?(net*4/equityPost):0;
+  p.multiplier=clamp(10+roeAnnual*20,5,18);
+  const fairValue=Math.max(0.01,equityPost*p.multiplier/p.sharesOutstanding);
+  const surprise=clamp((net-prevNet)/Math.max(1,Math.abs(prevNet)),-1,1)*0.05;
+  p.stock.price=Math.max(0.01,p.stock.price*0.6+fairValue*0.4);
+  p.stock.price*=1+surprise;
+  p.marketCap=p.stock.price*p.sharesOutstanding;
+
+
+  p.quarter+=1;
+  const eps=net/p.sharesOutstanding;
+  const roa=totalAssetsPre>0?net*4/totalAssetsPre*100:0;
+  const nim=totalAssetsPre>0?nii*4/totalAssetsPre*100:0;
+  p.lastPL={income:{personal:incomePersonal,home:incomeHome,bonds:incomeBonds,total:incomeTotal},
+            expense:{savings:expSavings,fd:expFD,funding:expFunding,total:expTotal},
+            nii,provisions,opex,pretax,tax,net,eps,roe:roeAnnual*100,roa,nim};
+  log(p,"P&L",net>=0?"PROFIT":"LOSS",1,net,net);
+  p.history.push({q:p.quarter,equity:equityPost,sharePrice:p.stock.price,net,eps,roe:roeAnnual*100});
+  p.history=p.history.slice(-24);
+
+  persist(); render(); syncPublic();
+}
+
+$("saveRatesBtn").addEventListener("click",()=>{
+  const p=currentPlayer();
+  const vals={fd:+$("r_fd").value, savings:+$("r_savings").value, personal:+$("r_personal").value, home:+$("r_home").value};
+  for(const k in vals){ if(isNaN(vals[k])||vals[k]<0||vals[k]>100){ alert("Rates must be between 0 and 100"); return; } }
+  Object.assign(p.rates,vals);
+  persist(); render();
+  const msg=$("r_savedMsg"); msg.textContent="✓ Rates saved — effective next quarter.";
+  setTimeout(()=>{ if(msg.textContent.startsWith("✓")) msg.textContent=""; },4000);
+});
+function updateRatePreview(){
+  const p=currentPlayer(); if(!p) return;
+  const per=+$("r_personal").value, home=+$("r_home").value;
+  if(isNaN(per)||isNaN(home)){ $("r_preview").textContent=""; return; }
+  const perG=clamp(((p.rates.central+9)-per)*0.02,-0.10,0.15)*100;
+  const homeG=clamp(((p.rates.central+6)-home)*0.02,-0.10,0.15)*100;
+  $("r_preview").innerHTML=`Projected next quarter: personal book ${perG>=0?'+':''}${perG.toFixed(1)}%, home book ${homeG>=0?'+':''}${homeG.toFixed(1)}% (before write-offs).`;
+}
+["r_personal","r_home"].forEach(id=>$(id).addEventListener("input",updateRatePreview));
+
+$("b_subBtn").addEventListener("click",()=>{
+  const p=currentPlayer(); const qty=+$("b_subqty").value;
+  if(!qty||qty<=0){ alert("Enter a face value amount"); return; }
+  const available=p.bonds.cap-p.bonds.issued;
+  if(qty>available){ alert("Only "+money(available)+" available to subscribe right now"); return; }
+  const cost=qty;
+  if(cost>p.reserve){ alert("Insufficient reserve"); return; }
+  p.reserve-=cost; p.bonds.holdings+=qty; p.bonds.issued+=qty;
+  log(p,"Bonds","SUBSCRIBE",qty,100,cost);
+  persist(); $("b_subqty").value=""; render();
+});
+$("b_redBtn").addEventListener("click",()=>{
+  const p=currentPlayer(); const qty=+$("b_redqty").value;
+  if(!qty||qty<=0){ alert("Enter a face value amount"); return; }
+  if(qty>p.bonds.holdings){ alert("You don't hold that many bonds"); return; }
+  const proceeds=qty*p.bonds.price/100;
+  p.reserve+=proceeds; p.bonds.holdings-=qty; 
+  log(p,"Bonds","REDEEM",qty,p.bonds.price,proceeds);
+  persist(); $("b_redqty").value=""; render();
+});
+
+let unsubBondBook=null;
+function subscribeBondBook(){
+  if(!dbc){ return; }
+  if(unsubBondBook) unsubBondBook();
+  unsubBondBook=dbc.collection("bondOrders").orderBy("price","asc").limit(200).onSnapshot(snap=>{
+    bondBookCache=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(currentView==="bonds") renderBondBook();
+  },()=>{});
+}
+let bondBookCache=[];
+function renderBondBook(){
+  const bids=bondBookCache.filter(o=>o.side==="BID").sort((a,b)=>b.price-a.price);
+  const asks=bondBookCache.filter(o=>o.side==="ASK").sort((a,b)=>a.price-b.price);
+  $("bo_bids").innerHTML=bookLevels(bids,"BID").map(o=>`<tr><td class="mono">${money(o.qty)}</td><td class="mono">${money(o.price)}</td></tr>`).join("")||"<tr><td colspan=2 class=\"empty\">No bids</td></tr>";
+  $("bo_asks").innerHTML=bookLevels(asks,"ASK").map(o=>`<tr><td class="mono">${money(o.qty)}</td><td class="mono">${money(o.price)}</td></tr>`).join("");
+  const mine=bondBookCache.filter(o=>o.investorId===myId);
+  $("bo_myorders_empty").classList.toggle("hidden", mine.length>0);
+  $("bo_myorders").innerHTML=mine.map(o=>`<tr><td><span class="pill ${o.side==='BID'?'buy':'sell'}">${o.side}</span></td><td class="mono">${money(o.qty)}</td><td class="mono">${money(o.price)}</td><td><button class="btn secondary" data-cancel="${o.id}">Cancel</button></td></tr>`).join("");
+  $("bo_myorders").querySelectorAll("button[data-cancel]").forEach(btn=>{
+    btn.addEventListener("click",()=>cancelBondOrder(btn.dataset.cancel));
+  });
+}
+async function cancelBondOrder(orderId){
+  if(!dbc) return;
+  const ref=dbc.doc("bondOrders/"+orderId);
+  const snap=await ref.get(); if(!snap.exists) return;
+  const o=snap.data(); const p=currentPlayer();
+  if(o.investorId!==myId) return;
+  if(o.side==="BID") p.reserve+=o.qty*o.price/100; else p.bonds.holdings+=o.qty;
+  await ref.delete().catch(()=>{});
+  persist(); render();
+}
+$("bo_placeBtn").addEventListener("click",()=>placeBondOrder());
+async function placeBondOrder(){
+  const msg=$("bo_msg");
+  if(!dbc||!myId){ msg.textContent="Sign in to trade on the order book."; return; }
+  const side=$("bo_side").value, qty=+$("bo_qty").value, price=+$("bo_price").value;
+  if(!qty||qty<=0||!price||price<=0){ msg.textContent="Enter a valid quantity and price."; return; }
+  const p=currentPlayer();
+  if(side==="BID" && qty*price/100>p.reserve){ msg.textContent="Insufficient reserve to cover this bid."; return; }
+  if(side==="ASK" && qty>p.bonds.holdings){ msg.textContent="You don't hold that many bonds to offer."; return; }
+  const oppSide=side==="BID"?"ASK":"BID";
+  const snap=await dbc.collection("bondOrders").where("side","==",oppSide).limit(200).get();
+  let resting=snap.docs.map(d=>({id:d.id,...d.data()}));
+  resting.sort((a,b)=> oppSide==="ASK"? a.price-b.price : b.price-a.price);
+  let remaining=qty;
+  for(const ro of resting){
+    if(remaining<=0) break;
+    const crosses= side==="BID"? price>=ro.price : price<=ro.price;
+    if(!crosses) break;
+    if(ro.investorId===myId) continue; // don't trade against your own resting order
+    const fillQty=Math.min(remaining, ro.qty), fillPrice=ro.price, amount=fillQty*fillPrice/100;
+    const roRef=dbc.doc("bondOrders/"+ro.id);
+    const newQty=ro.qty-fillQty;
+    if(newQty<=0.0001) await roRef.delete().catch(()=>{}); else await roRef.update({qty:newQty}).catch(()=>{});
+    if(side==="BID"){
+      p.reserve-=amount; p.bonds.holdings+=fillQty;
+      log(p,"Bonds","BUY",fillQty,fillPrice,amount);
+      if(ro.investorId!==myId) await dbc.collection("bondFills").add({investorId:ro.investorId,kind:"CASH",amount,qty:fillQty,price:fillPrice,claimed:false,createdAt:Date.now()}).catch(()=>{});
+    } else {
+      p.reserve+=amount; p.bonds.holdings-=fillQty;
+      log(p,"Bonds","SELL",fillQty,fillPrice,amount);
+      if(ro.investorId!==myId) await dbc.collection("bondFills").add({investorId:ro.investorId,kind:"BONDS",qty:fillQty,price:fillPrice,claimed:false,createdAt:Date.now()}).catch(()=>{});
+    }
+    p.bonds.price=fillPrice;
+    remaining-=fillQty;
+  }
+  if(remaining>0.0001){
+    if(side==="BID") p.reserve-=remaining*price/100; else p.bonds.holdings-=remaining;
+    await dbc.collection("bondOrders").add({investorId:myId,side,qty:remaining,price,createdAt:Date.now()}).catch(()=>{});
+  }
+  persist(); $("bo_qty").value=""; $("bo_price").value=""; render();
+  msg.textContent="Order processed.";
+}
+
+$("l_takeBtn").addEventListener("click",()=>{
+  const p=currentPlayer(); const amt=+$("l_amount").value; const max=p.marketCap/2;
+  if(!amt||amt<=0){ alert("Enter an amount"); return; }
+  if(amt>max){ alert("Maximum: "+money(max)); return; }
+  p.reserve+=amt; p.funding+=amt;
+  log(p,"Funding","DRAW",1,amt,amt);
+  persist(); $("l_amount").value=""; render();
+});
+
+function shareTrade(side){
+  const p=currentPlayer(); const qty=+$("s_qty").value;
+  if(!qty||qty<=0){ alert("Enter a number of shares"); return; }
+  let price=p.stock.price, total=qty*price;
+  if(side==="BUY"){
+    if(total>p.reserve){ alert("Insufficient reserve"); return; }
+    if(qty>=p.sharesOutstanding*0.5){ alert("Can't buy back more than half the float in one order"); return; }
+    p.reserve-=total; p.sharesOutstanding-=qty;
+    price*=1+Math.min(qty/p.sharesOutstanding*0.5,.05);
+    log(p,"Shares","BUYBACK",qty,total/qty,total);
+  } else {
+    p.reserve+=total; p.sharesOutstanding+=qty;
+    price*=Math.max(.01,1-Math.min(qty/p.sharesOutstanding*0.5,.05));
+    log(p,"Shares","ISSUE",qty,total/qty,total);
+  }
+  p.stock.price=Math.max(0.01,Math.round(price*100)/100);
+  p.marketCap=p.stock.price*p.sharesOutstanding;
+  persist(); $("s_qty").value=""; render(); syncPublic();
+}
+
+function ctcTrade(side){
+  const p=currentPlayer(); const qty=+$("c_qty").value;
+  if(!qty||qty<=0){ alert("Enter a quantity"); return; }
+  let price=p.ctc.price, total=qty*price;
+  if(side==="BUY"){
+    if(total>p.reserve){ alert("Insufficient reserve"); return; }
+    p.reserve-=total; p.ctc.holdings+=qty; price*=1+Math.min(qty*0.000008/100,.05);
+  } else {
+    if(qty>p.ctc.holdings){ alert("Not enough CTC"); return; }
+    p.reserve+=total; p.ctc.holdings-=qty; price*=Math.max(.01,1-Math.min(qty*0.000008/100,.05));
+  }
+  p.ctc.price=Math.round(price*100)/100;
+  log(p,"CTC",side,qty,total/qty,total);
+  persist(); $("c_qty").value=""; render();
+}
+
+// Universal quarter clock: the server runs every bank's quarter at the top of each hour; this only shows the countdown and pulls fresh state.
+const QUARTER_MS=3600000;
+let clock={epoch:0,offset:0,synced:0};
+async function syncClock(){
+  const r=await fetch("/api/clock").then(r=>r.json());
+  clock={epoch:r.epoch_ms,offset:r.now_ms-Date.now(),synced:Date.now()};
+}
+function globalQ(){ return Math.floor((Date.now()+clock.offset-clock.epoch)/QUARTER_MS); }
+let pollN=0;
+function tickQuarters(){
+  if(!currentPlayer()||!clock.epoch) return;
+  const left=QUARTER_MS-((Date.now()+clock.offset-clock.epoch)%QUARTER_MS), m=Math.floor(left/60000), sec=Math.floor(left%60000/1000);
+  const el=$("qCountdown"); if(el) el.textContent=String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0");
+  if(++pollN%3===0) pullState(); // quarters now run on the server; just show the latest state
+  if(Date.now()-clock.synced>300000) syncClock().catch(()=>{});
+}
+function startQuarterClock(){ if(botTimer) clearInterval(botTimer); syncClock().then(()=>{ tickQuarters(); botTimer=setInterval(tickQuarters,1000); }); }
+
+function sparkline(values){
+  if(values.length<2) return "";
+  const w=300,h=56,min=Math.min(...values),max=Math.max(...values);
+  const span=(max-min)||1;
+  const pts=values.map((v,i)=>{const x=i/(values.length-1)*w; const y=h-((v-min)/span)*h; return x.toFixed(1)+","+y.toFixed(1);}).join(" ");
+  return `<polyline points="${pts}" fill="none" stroke="#C9A227" stroke-width="2"/>`;
+}
+function quarterLabel(q){ const year=2018+Math.floor(q/4); const qn=(q%4)+1; return "Q"+qn+" "+year; }
+
+function render(){
+  const p=currentPlayer(); if(!p) return;
+  const equity=equityOf(p), rwa=rwaOf(p), totalDeposits=p.deposits.savings+p.deposits.fd;
+  const car=rwa>0?(equity/rwa*100):100;
+  const crrReq=totalDeposits*0.04;
+  const ldr=totalDeposits>0?((p.loans.personal+p.loans.home)/totalDeposits*100):0;
+  const bondMktVal=p.bonds.holdings*p.bonds.price/100;
+  const totalAssets=p.reserve+p.loans.personal+p.loans.home+bondMktVal;
+
+  $("bankTitle").textContent=p.bankName;
+  $("yearLine").textContent=quarterLabel(p.quarter);
+  $("d_equity").textContent=money(equity);
+  $("d_cap").textContent=money(p.marketCap);
+  $("d_share").textContent=money(p.stock.price);
+  $("d_inflation").textContent=pct(p.inflation);
+  $("d_gdp").textContent=money(p.gdp);
+  $("d_central").textContent=pct(p.rates.central);
+
+  let banner="";
+  if(p.reserve<crrReq) banner+=`<div class="banner bad">Reserve shortfall: holding ${money(p.reserve)} against a required ${money(crrReq)}. Raise deposit rates, sell bonds, or draw funding.</div>`;
+  else if(car<8) banner+=`<div class="banner bad">Capital adequacy ratio is ${car.toFixed(1)}% — below the 8% regulatory minimum.</div>`;
+  else if(car<10.5) banner+=`<div class="banner warn">Capital adequacy ratio is ${car.toFixed(1)}% — thin buffer above the regulatory minimum.</div>`;
+  $("d_banner").innerHTML=banner;
+
+  $("bs_reserve").textContent=money(p.reserve);
+  $("bs_personal").textContent=money(p.loans.personal);
+  $("bs_home").textContent=money(p.loans.home);
+  $("bs_bonds").textContent=money(bondMktVal);
+  $("bs_totalassets").textContent=money(totalAssets);
+  $("bs_savings").textContent=money(p.deposits.savings);
+  $("bs_fd").textContent=money(p.deposits.fd);
+  $("bs_funding").textContent=money(p.funding);
+  $("bs_equity").textContent=money(equity);
+
+  $("d_spark").innerHTML=sparkline(p.history.map(h=>h.equity).concat(equity));
+
+  const carPill=car>=10.5?"ok":(car>=8?"warn":"bad");
+  $("d_car").innerHTML=`<span class="pill ${carPill}">${car.toFixed(1)}%</span>`;
+  const crrOk=p.reserve>=crrReq;
+  $("d_crr").innerHTML=`<span class="pill ${crrOk?"ok":"bad"}">${crrOk?"Compliant":"Shortfall"}</span>`;
+  const ldrPill=(ldr>=60&&ldr<=90)?"ok":"warn";
+  $("d_ldr").innerHTML=`<span class="pill ${ldrPill}">${ldr.toFixed(1)}%</span>`;
+
+  const pl=p.lastPL;
+  $("pl_i_personal").textContent=money(pl.income.personal);
+  $("pl_i_home").textContent=money(pl.income.home);
+  $("pl_i_bonds").textContent=money(pl.income.bonds);
+  $("pl_i_total").textContent="+"+money(pl.income.total);
+  $("pl_e_savings").textContent=money(pl.expense.savings);
+  $("pl_e_fd").textContent=money(pl.expense.fd);
+  $("pl_e_funding").textContent=money(pl.expense.funding);
+  $("pl_e_total").textContent="-"+money(pl.expense.total);
+  $("pl_nii").textContent=money(pl.nii);
+  $("pl_provisions").textContent="-"+money(pl.provisions);
+  $("pl_opex").textContent="-"+money(pl.opex);
+  $("pl_pretax").textContent=money(pl.pretax);
+  $("pl_tax").textContent="-"+money(pl.tax);
+  const netEl=$("pl_net"); netEl.textContent=(pl.net>=0?"+":"")+money(pl.net); netEl.className="mono "+(pl.net>=0?"up":"down");
+  $("pl_eps").textContent=money(pl.eps);
+  $("pl_roe").textContent=pct(pl.roe);
+  $("pl_roa").textContent=pct(pl.roa);
+  $("pl_nim").textContent=pct(pl.nim);
+
+  const hist=p.history.slice(-6).reverse();
+  $("d_history").innerHTML=hist.map(h=>`<tr><td>${quarterLabel(h.q)}</td><td class="mono ${h.net>=0?'up':'down'}">${(h.net>=0?'+':'')+money(h.net)}</td><td class="mono">${money(h.eps)}</td><td class="mono">${pct(h.roe)}</td></tr>`).join("");
+  $("d_history_empty").classList.toggle("hidden", hist.length>0);
+
+  const acts=p.transactions.slice(0,8);
+  $("d_activity").innerHTML=acts.map(rowHtml).join("");
+  $("d_empty").classList.toggle("hidden", acts.length>0);
+
+  $("rt_savbal").textContent=money(p.deposits.savings);
+  $("rt_fdbal").textContent=money(p.deposits.fd);
+  $("rt_perbal").textContent=money(p.loans.personal);
+  $("rt_homebal").textContent=money(p.loans.home);
+  $("r_fd").value=p.rates.fd; $("r_savings").value=p.rates.savings;
+  $("r_personal").value=p.rates.personal; $("r_home").value=p.rates.home;
+  $("r_centralHint").textContent=pct(p.rates.central);
+  $("rt_marketPersonal").textContent=pct(p.rates.central+9);
+  $("rt_marketHome").textContent=pct(p.rates.central+6);
+  updateRatePreview();
+
+  $("b_holdings").textContent=money(p.bonds.holdings);
+  $("b_price").textContent=money(p.bonds.price);
+  $("b_mktval").textContent=money(bondMktVal);
+  p.bonds.cap=Math.max(p.bonds.cap,p.gdp*0.5);
+  $("b_cap").textContent=money(p.bonds.cap);
+  $("b_issued").textContent=money(p.bonds.issued);
+  $("b_available").textContent=money(Math.max(0,p.bonds.cap-p.bonds.issued));
+
+  $("l_reserve").textContent=money(p.reserve);
+  $("l_limit").textContent=money(p.marketCap/2);
+
+  $("s_price").textContent=money(p.stock.price);
+  $("s_shares").textContent=money(p.sharesOutstanding);
+  $("s_mktcap").textContent=money(p.marketCap);
+  const shareTx=p.transactions.filter(t=>t.market==="Shares").slice(0,15);
+  $("s_tx").innerHTML=shareTx.map(t=>`<tr><td><span class="pill ${t.side==='BUYBACK'?'buy':'sell'}">${t.side}</span></td><td class="mono">${money(t.quantity)}</td><td class="mono">${money(t.price)}</td><td class="mono">${money(t.total)}</td></tr>`).join("");
+  $("s_empty").classList.toggle("hidden", shareTx.length>0);
+  $("s_divps").textContent=money(p.dividendPerShare||0);
+  $("s_divyield").textContent=p.stock.price>0?pct((p.dividendPerShare||0)*4/p.stock.price*100):"—";
+  if(dbc&&myId){
+    dbc.collection("holdings").where("bankId","==",myId).limit(200).get().then(snap=>{
+      $("s_holders").textContent=snap.size;
+    }).catch(()=>{});
+  } else { $("s_holders").textContent="—"; }
+
+  $("c_price").textContent=money(p.ctc.price);
+  $("c_holdings").textContent=money(p.ctc.holdings);
+  $("c_reserve").textContent=money(p.reserve);
+  const ctcTx=p.transactions.filter(t=>t.market==="CTC").slice(0,15);
+  $("c_tx").innerHTML=ctcTx.map(t=>`<tr><td><span class="pill ${t.side==='BUY'?'buy':'sell'}">${t.side}</span></td><td class="mono">${money(t.quantity)}</td><td class="mono">${money(t.price)}</td><td class="mono">${money(t.total)}</td></tr>`).join("");
+  $("c_empty").classList.toggle("hidden", ctcTx.length>0);
+}
+function rowHtml(t){
+  const buySide=["BUY","DRAW","COUPON","BUYBACK","RECEIVED"].includes(t.side)||t.side==="PROFIT";
+  const cls=buySide?"buy":"sell";
+  return `<tr><td>${t.market}</td><td><span class="pill ${cls}">${t.side}</span></td><td class="mono">${money(t.quantity)}</td><td class="mono">${money(t.price)}</td><td class="mono">${money(t.total)}</td></tr>`;
+}
+
+function enterApp(){
+  $("authScreen").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  setView("dashboard");
+  startQuarterClock();
+  initMultiplayer();
+}
+
+// Restore the server session on refresh (the session cookie ends when the browser closes; Logout ends it immediately).
+(async()=>{
+  const me=await fetch("/api/me").then(r=>r.json()).catch(()=>({}));
+  if(!me.id) return;
+  const r=await fetch("/api/state").then(r=>r.json()).catch(()=>null);
+  if(r&&r.state){ players={}; players[me.id]=migrate(r.state); currentUser=me.id; enterApp(); }
+})();
+window.addEventListener("pagehide",()=>{ if(dirty) doSave(); }); // don't lose a change made just before a refresh
+})();
+</script>
+</body>
+</html>
