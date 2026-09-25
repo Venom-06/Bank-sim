@@ -339,20 +339,43 @@ async function cancelCurrency(id){try{await api('/api/currency/cancel',{method:'
 async function currencyTrade(side){try{await api('/api/currency/trade',{method:'POST',body:JSON.stringify({side,qty:$('currencyQty').value})});await refresh();await loadCurrencyBook()}catch(e){alert(e.message)}}
 async function tickClock(){
   try{
-    const t=await api('/api/time');
-    const left=Math.max(0, Number(t.seconds_left ?? (t.next_turn-t.server_time)));
-    const total=Math.ceil(left);
-    const h=Math.floor(total/3600);
-    const m=Math.floor((total%3600)/60);
-    const sec=total%60;
-    $('countdown').textContent=[h,m,sec].map((v,i)=>String(v).padStart(2,'0')).join(':');
-    // Refresh immediately around a real server tick instead of waiting for
-    // the normal 1-second poll.
-    if(left <= 0.25) refresh();
-  }catch(e){}
+    const t = await api('/api/time');
+
+    let left = Number(t.seconds_left ?? (t.next_turn - t.server_time));
+
+    if (!Number.isFinite(left)) return;
+
+    // Quarter has just changed
+    if (left <= 0) {
+      $('countdown').textContent = '01:00:00';
+
+      // Get the new quarter/server time immediately
+      await refresh();
+
+      // Fetch the new countdown immediately
+      const nt = await api('/api/time');
+      left = Number(nt.seconds_left ?? (nt.next_turn - nt.server_time));
+    }
+
+    left = Math.max(0, left);
+
+    const total = Math.ceil(left);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const sec = total % 60;
+
+    $('countdown').textContent =
+      [h, m, sec]
+        .map(v => String(v).padStart(2, '0'))
+        .join(':');
+
+  } catch(e) {
+    console.error('Clock error:', e);
+  }
 }
-setInterval(tickClock,100);
-(async()=>{try{state=await api('/api/state');start()}catch(e){}})();
+
+setInterval(tickClock, 1000);
+tickClock();
 </script>
 </body>
 </html>
