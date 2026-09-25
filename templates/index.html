@@ -360,8 +360,8 @@ async function tickClock(){
     left = Math.max(0, left);
 
     const total = Math.ceil(left);
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
+    const h = Math.floor(total / 10);
+    const m = Math.floor((total % 10) / 60);
     const sec = total % 60;
 
     $('countdown').textContent =
