@@ -856,4 +856,4 @@ if __name__ == "__main__":
     # Prevent two background loops when Flask's development reloader is active.
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
         threading.Thread(target=game_loop, daemon=True, name="banksim-game-loop").start()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",5000)), debug=False)
+    app.run(debug=False)
