@@ -223,12 +223,14 @@ def user_dict(row):
     total_assets = d["reserve"] + branch_assets + loans_lent
     liabilities = deposits + loans_borrowed
     net_worth = total_assets - liabilities
+    market_cap = d["share_price"] * d["shares"]
     car = net_worth / total_assets * 100 if total_assets > 0 else 0
     crr = d["reserve"] >= deposits * 0.04
     ldr = loans_lent / deposits * 100 if deposits > 0 else 0
     d.update(
         net_worth=net_worth,
         total_assets=total_assets,
+        market_cap=market_cap,
         deposits=deposits,
         liabilities=liabilities,
         loans_lent=loans_lent,
@@ -497,8 +499,8 @@ def register():
     with lock, db() as con:
         try:
             cur = con.execute("""INSERT INTO users
-                (username,password_hash,bank_name,reserve,created_at) VALUES (?,?,?,?,?)""",
-                (username, generate_password_hash(password), bank_name, 2000000.0, time.time()))
+                (username,password_hash,bank_name,created_at) VALUES (?,?,?,?)""",
+                (username, generate_password_hash(password), bank_name, time.time()))
             uid = cur.lastrowid
             con.commit()
         except sqlite3.IntegrityError:
@@ -547,8 +549,8 @@ def market():
         rows = con.execute("""SELECT id,bank_name,share_price,shares,term,inflation,
                               reserve,savings_balance,fd_balance,dividend_ps,
                               savings_rate,fd_rate,fd_term,loan_rate,loan_term
-                              FROM users ORDER BY bank_name COLLATE NOCASE ASC""").fetchall()
-        return jsonify([dict(r) for r in rows])
+                              FROM users ORDER BY (share_price*shares) DESC""").fetchall()
+        return jsonify([dict(r, market_cap=r["share_price"]*r["shares"]) for r in rows])
 
 @app.post("/api/rates")
 @login_required
@@ -851,9 +853,22 @@ def game_time():
         seconds_left=max(0, next_tick_at - now)
     )
 
-if __name__ == "__main__":
-    init_db()
-    # Prevent two background loops when Flask's development reloader is active.
-    if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+# Initialize the database and start the game loop when imported by WSGI/Gunicorn.
+# In WSGI deployments, __name__ is not "__main__", so relying only on the
+# __main__ block would leave the SQLite tables uninitialized and cause HTTP 500
+# errors on login/register.
+def start_background_services():
+    global game_loop_started
+    if game_loop_started:
+        return
+    with lock:
+        if game_loop_started:
+            return
+        init_db()
         threading.Thread(target=game_loop, daemon=True, name="banksim-game-loop").start()
-    app.run(debug=False)
+        game_loop_started = True
+
+start_background_services()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",5000)), debug=False)

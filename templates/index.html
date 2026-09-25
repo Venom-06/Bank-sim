@@ -50,6 +50,7 @@
   <div id="banner"></div>
   <div class="grid">
     <div class="stat"><small>Net worth</small><b id="netWorth">—</b></div>
+    <div class="stat"><small>Market cap</small><b id="cap">—</b></div>
     <div class="stat"><small>Bank valuation / share price</small><b id="price">—</b></div>
     <div class="stat"><small>Inflation</small><b id="inflation">—</b></div>
     <div class="stat"><small>Currency</small><b id="currency">—</b></div>
@@ -106,7 +107,7 @@
   <div class="head"><div><h2 id="profileBankName">Bank Profile</h2><p id="profileBankUser" class="muted"></p></div><button class="secondary" onclick="view('market')">Back to All Banks</button></div>
 
   <div class="grid">
-    <div class="stat"><small>Net worth</small><b id="profileNetWorth">—</b></div><div class="stat"><small>Share price</small><b id="profilePrice">—</b></div><div class="stat"><small>Branches</small><b id="profileBranches">—</b></div>
+    <div class="stat"><small>Net worth</small><b id="profileNetWorth">—</b></div><div class="stat"><small>Market cap</small><b id="profileCap">—</b></div><div class="stat"><small>Share price</small><b id="profilePrice">—</b></div><div class="stat"><small>Branches</small><b id="profileBranches">—</b></div>
   </div>
 
   <div class="panel bank-offers">
@@ -228,7 +229,7 @@ function render(){
   if(!state)return;
   $('bankTitle').textContent=state.bank_name;
   $('termLine').textContent='Quarter '+state.term;
-  $('netWorth').textContent=money(state.net_worth);
+  $('netWorth').textContent=money(state.net_worth); $('cap').textContent=money(state.market_cap);
   $('price').textContent=money(state.share_price); $('inflation').textContent=pct(state.inflation);
   $('currency').textContent=money(state.currency); $('reserve').textContent=money(state.reserve); $('branchvalue').textContent=money(branchValue(state.branches));
   $('assets').textContent=money(state.total_assets); $('savings').textContent=money(state.savings_balance);
@@ -263,7 +264,7 @@ async function showProfile(id){
     const b=await api('/api/profile/'+id);
     profileBankId=id;
     $('profileBankName').textContent=b.bank_name; $('profileBankUser').textContent='@'+b.username;
-    $('profileNetWorth').textContent=money(b.net_worth); $('profilePrice').textContent=money(b.share_price);
+    $('profileNetWorth').textContent=money(b.net_worth); $('profileCap').textContent=money(b.market_cap); $('profilePrice').textContent=money(b.share_price);
     $('profileBranches').textContent=b.branches.length; $('profileSavingsRate').textContent=pct(b.savings_rate); $('profileFdRate').textContent=pct(b.fd_rate); $('profileLoanRate').textContent=pct(b.loan_rate); $('profileFdTerm').textContent=`${b.fd_term} quarters · maturity`; $('profileLoanTerm').textContent=`${b.loan_term} quarters · repayment term`; $('profileSavingsBtnRate').textContent=`${pct(b.savings_rate)} p.a. · flexible`; $('profileFdBtnRate').textContent=`${pct(b.fd_rate)} p.a. · ${b.fd_term} quarters`; $('profileLoanBtnRate').textContent=`${pct(b.loan_rate)} p.a. · ${b.loan_term} quarters`;
     $('profileTerm').textContent=b.term; $('profileInflation').textContent=pct(b.inflation);
     $('profileCar').textContent=pct(b.car); $('profileCrr').textContent=b.crr?'OK':'Below 4%';
