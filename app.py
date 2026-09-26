@@ -7,7 +7,7 @@ from functools import wraps
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-in-production")
 DB = os.environ.get("BANKSIM_DB", "banksim.db")
-TURN_SECONDS = 10
+TURN_SECONDS = 60
 TAX_RATE = 0.25
 lock = threading.RLock()
 game_started_at = time.time()
