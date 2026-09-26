@@ -46,7 +46,7 @@
 
 <main>
 <section id="dashboard" class="page">
-  <div class="head"><div><h2 id="bankTitle">Bank</h2><p id="termLine">Quarter 0</p></div><div class="timer">Next quarter: <b id="countdown">01:00:00</b></div></div>
+  <div class="head"><div><h2 id="bankTitle">Bank</h2><p id="termLine">Quarter 0</p></div></div>
   <div id="banner"></div>
   <div class="grid">
     <div class="stat"><small>Net worth</small><b id="netWorth">—</b></div>
@@ -214,7 +214,7 @@ function renderPL(p={}){
 async function api(url, opts={}) {
   let r;
   try {
-    r=await fetch(url,{headers:{'Content-Type':'application/json','Accept':'application/json'},...opts});
+    r=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json'},...opts});
   } catch(e) {
     throw new Error('Network request failed. Check that the Flask server is still running.');
   }
@@ -227,19 +227,51 @@ async function api(url, opts={}) {
 function showError(e){ $('autherr').textContent=e.message||e; $('autherr').classList.remove('hidden'); }
 function showRegister(){ $('loginBox').classList.add('hidden'); $('registerBox').classList.remove('hidden'); $('autherr').classList.add('hidden'); }
 function showLogin(){ $('registerBox').classList.add('hidden'); $('loginBox').classList.remove('hidden'); $('autherr').classList.add('hidden'); }
+let appStarted=false;
 async function register(){
-  try{ await api('/api/register',{method:'POST',body:JSON.stringify({username:$('regUser').value,bank_name:$('regBank').value,password:$('regPass').value})}); start(); }
-  catch(e){showError(e)}
+  try{
+    await api('/api/register',{method:'POST',body:JSON.stringify({username:$('regUser').value,bank_name:$('regBank').value,password:$('regPass').value})});
+    await start();
+  }catch(e){showError(e)}
 }
 async function login(){
-  try{ await api('/api/login',{method:'POST',body:JSON.stringify({username:$('loginUser').value,password:$('loginPass').value})}); start(); }
-  catch(e){showError(e)}
+  try{
+    await api('/api/login',{method:'POST',body:JSON.stringify({username:$('loginUser').value,password:$('loginPass').value})});
+    await start();
+  }catch(e){showError(e)}
 }
-async function logout(){await api('/api/logout',{method:'POST'}); location.reload();}
-async function start(){ $('auth').classList.add('hidden'); $('app').classList.remove('hidden'); await refresh(); await loadBanks(); await loadCurrencyBook(); setInterval(refresh,1000); setInterval(loadBanks,2000); setInterval(loadCurrencyBook,1000); }
+async function logout(){
+  try{await api('/api/logout',{method:'POST'});}finally{location.reload();}
+}
+async function start(){
+  if(appStarted)return;
+  try{
+    // Verify the session before hiding the login screen. This prevents a
+    // failed session from creating an endless login-page refresh loop.
+    state=await api('/api/state');
+    $('auth').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    appStarted=true;
+    render();
+    await loadBanks();
+    await loadCurrencyBook();
+    setInterval(refresh,1000);
+    setInterval(loadBanks,5000);
+    setInterval(loadCurrencyBook,1000);
+  }catch(e){
+    $('auth').classList.remove('hidden');
+    $('app').classList.add('hidden');
+    showError('Login succeeded, but the server session could not be verified. Please try again.');
+  }
+}
 function view(v){activeView=v;document.querySelectorAll('.page').forEach(x=>x.classList.toggle('hidden',x.id!==v));document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x.dataset.view===v)); renderCurrent();}
 async function refresh(){
-  try{state=await api('/api/state'); render();}catch(e){if(e.message.includes('Login')) location.reload();}
+  try{state=await api('/api/state'); render();}
+  catch(e){
+    // Do not reload the browser on a transient 401. A forced reload was
+    // causing the login page to refresh continuously.
+    console.error('State refresh failed:',e);
+  }
 }
 async function loadBanks(){try{banks=await api('/api/market');renderMarket();fillBankSelects();}catch(e){}}
 function render(){
@@ -415,22 +447,7 @@ async function loadCurrencyBook(){try{const b=await api('/api/currency/book');$(
 async function placeCurrencyOrder(side){try{const price=$('currencyOrderPrice').value,qty=$('currencyQty').value;await api('/api/currency/order',{method:'POST',body:JSON.stringify({side,price,qty})});$('currencyQty').value='';await refresh();await loadCurrencyBook();}catch(e){alert(e.message)}}
 async function cancelCurrency(id){try{await api('/api/currency/cancel',{method:'POST',body:JSON.stringify({order_id:id})});await refresh();await loadCurrencyBook();}catch(e){alert(e.message)}}
 async function currencyTrade(side){try{await api('/api/currency/trade',{method:'POST',body:JSON.stringify({side,qty:$('currencyQty').value})});await refresh();await loadCurrencyBook()}catch(e){alert(e.message)}}
-async function tickClock(){
-  try{
-    const t=await api('/api/time');
-    const left=Math.max(0, Number(t.seconds_left ?? (t.next_turn-t.server_time)));
-    const total=Math.ceil(left);
-    const h=Math.floor(total/3600);
-    const m=Math.floor((total%3600)/60);
-    const sec=total%60;
-    $('countdown').textContent=[h,m,sec].map((v,i)=>String(v).padStart(2,'0')).join(':');
-    // Refresh immediately around a real server tick instead of waiting for
-    // the normal 1-second poll.
-    if(left <= 0.25) refresh();
-  }catch(e){}
-}
-setInterval(tickClock,100);
-(async()=>{try{state=await api('/api/state');start()}catch(e){}})();
+
 </script>
 </body>
 </html>

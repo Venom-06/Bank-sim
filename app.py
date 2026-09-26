@@ -6,6 +6,8 @@ from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-in-production")
+# Keep the Flask login session available to same-origin browser requests.
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 DB = os.environ.get("BANKSIM_DB", "banksim.db")
 TURN_SECONDS = 3600
 TAX_RATE = 0.25
