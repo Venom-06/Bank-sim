@@ -34,7 +34,7 @@ def init_db():
             password_hash TEXT NOT NULL,
             bank_name TEXT NOT NULL,
             reserve REAL NOT NULL DEFAULT 2000000,
-            shares REAL NOT NULL DEFAULT 20000000,
+            shares REAL NOT NULL DEFAULT 3000000,
             share_price REAL NOT NULL DEFAULT 10,
             savings_rate REAL NOT NULL DEFAULT 2.4,
             fd_rate REAL NOT NULL DEFAULT 7,
@@ -498,9 +498,12 @@ def register():
         return jsonify(error="Username must be 3+ characters and password 4+ characters."), 400
     with lock, db() as con:
         try:
+            # New accounts start with a market cap of 30M (3,000,000 shares x
+            # the 10/share default) — set explicitly here so it's correct even
+            # against a database file created before this default changed.
             cur = con.execute("""INSERT INTO users
-                (username,password_hash,bank_name,created_at) VALUES (?,?,?,?)""",
-                (username, generate_password_hash(password), bank_name, time.time()))
+                (username,password_hash,bank_name,shares,share_price,created_at) VALUES (?,?,?,?,?,?)""",
+                (username, generate_password_hash(password), bank_name, 3_000_000, 10, time.time()))
             uid = cur.lastrowid
             con.commit()
         except sqlite3.IntegrityError:

@@ -33,34 +33,41 @@ main{max-width:1100px;margin:auto;padding:24px 16px 60px}.page{display:block}.he
 .bank-market-table th,
 .bank-market-table td{vertical-align:middle}
 .bank-market-table td small{display:block;margin-top:3px;color:var(--muted,#8f99ad)}
+.bank-market-table th.sortable{cursor:pointer;user-select:none}
+.bank-market-table th.sortable:hover{color:var(--text)}
+.bank-market-table th.sortable.active{color:var(--gold)}
+.sort-indicator{display:inline-block;font-size:10px;letter-spacing:0;margin-left:2px;color:var(--gold)}
+.sort-indicator sup{font-size:9px;margin-left:1px}
+.market-pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 2px 2px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:12px}
+.market-pagination-left,.market-pagination-right{display:flex;align-items:center;gap:8px}
+.market-pagination button:disabled{opacity:.35;cursor:default}
+#marketClearSortBtn.hidden{display:none}
 @media (max-width:700px){
   #market .head{margin-bottom:18px}
   #market .head h2{font-size:30px;margin-bottom:8px}
   #market .head .muted{font-size:15px;line-height:1.45}
   #market .panel{padding:12px}
   .bank-market-table{min-width:0;width:100%;table-layout:fixed;font-size:13px}
-  .bank-market-table th,.bank-market-table td{padding:11px 7px;word-break:break-word}
-  .bank-market-table th:nth-child(1),.bank-market-table td:nth-child(1){width:27%}
-  .bank-market-table th:nth-child(2),.bank-market-table td:nth-child(2){width:18%}
-  .bank-market-table th:nth-child(3),.bank-market-table td:nth-child(3){width:18%}
-  .bank-market-table th:nth-child(4),.bank-market-table td:nth-child(4){width:18%}
-  .bank-market-table th:nth-child(5),.bank-market-table td:nth-child(5){width:19%}
-  .bank-market-table th:nth-child(6),.bank-market-table td:nth-child(6){display:none}
+  .bank-market-table th,.bank-market-table td{padding:10px 6px;word-break:break-word;white-space:normal}
+  .bank-market-table th:nth-child(1),.bank-market-table td:nth-child(1){width:24%}
+  .bank-market-table th:nth-child(2),.bank-market-table td:nth-child(2){width:15%}
+  .bank-market-table th:nth-child(3),.bank-market-table td:nth-child(3){width:15%}
+  .bank-market-table th:nth-child(4),.bank-market-table td:nth-child(4){width:15%}
+  .bank-market-table th:nth-child(5),.bank-market-table td:nth-child(5){width:17%}
+  .bank-market-table th:nth-child(6),.bank-market-table td:nth-child(6){width:14%}
   .bank-market-table td b{font-size:14px}
   .bank-market-table .mini{width:100%;font-size:12px;padding:8px 5px}
-}
-
-/* All Banks: keep a visible View button inside each bank name cell on mobile. */
-.bank-view-btn{display:inline-block;margin-left:6px;padding:5px 8px;font-size:11px;border-radius:7px;vertical-align:middle}
-.bank-market-table th:last-child,.bank-market-table td:last-child{display:none}
-@media(max-width:700px){
-  .bank-market-table{min-width:0!important;width:100%;table-layout:fixed}
-  .bank-market-table th:nth-child(1),.bank-market-table td:nth-child(1){width:28%}
-  .bank-market-table th:nth-child(2),.bank-market-table td:nth-child(2){width:18%}
-  .bank-market-table th:nth-child(3),.bank-market-table td:nth-child(3){width:18%}
-  .bank-market-table th:nth-child(4),.bank-market-table td:nth-child(4){width:18%}
-  .bank-market-table th:nth-child(5),.bank-market-table td:nth-child(5){width:18%}
   .bank-market-table td:first-child{white-space:normal}
   .bank-view-btn{display:block;margin:6px 0 0;padding:6px 8px;width:auto}
+  .market-pagination{padding-top:12px}
+}
+/* All Banks: keep a visible View button inside each bank name cell on mobile. */
+.bank-view-btn{display:inline-block;margin-left:6px;padding:5px 8px;font-size:11px;border-radius:7px;vertical-align:middle}
+@media(max-width:480px){
+  /* Term/inflation is the least essential column at this width — every other
+     column is one of the four sortable rate/price fields. */
+  .bank-market-table th:nth-child(6),.bank-market-table td:nth-child(6){display:none}
+  .market-pagination{flex-direction:column;align-items:stretch}
+  .market-pagination-left,.market-pagination-right{justify-content:space-between}
 }
 .timer b{font-variant-numeric:tabular-nums;letter-spacing:.5px}

@@ -142,8 +142,14 @@
 </section>
 
 <section id="market" class="page hidden">
-  <div class="head"><h2>All Banks</h2><p class="muted">Every bank advances together. Bank valuation is shown for reference; bank shares are not tradable.</p></div>
-  <div class="panel"><div class="tablewrap"><table class="bank-market-table"><thead><tr><th>Bank</th><th>Savings</th><th>FD</th><th>Loan</th><th>Terms</th></tr></thead><tbody id="banks"></tbody></table></div></div>
+  <div class="head"><h2>All Banks</h2><p class="muted">Every bank advances together. Bank valuation is shown for reference; bank shares are not tradable. Click a column to sort — shift-click to sort by more than one column at once.</p></div>
+  <div class="panel">
+    <div class="tablewrap"><table class="bank-market-table"><thead><tr id="marketHead"></tr></thead><tbody id="banks"></tbody></table></div>
+    <div class="market-pagination">
+      <div class="market-pagination-left"><span id="marketPageInfo" class="muted"></span><button class="mini" id="marketClearSortBtn" onclick="clearMarketSort()">Clear sort</button></div>
+      <div class="market-pagination-right"><button class="mini" id="marketPrevBtn" onclick="marketPrevPage()">‹ Prev</button><button class="mini" id="marketNextBtn" onclick="marketNextPage()">Next ›</button></div>
+    </div>
+  </div>
 </section>
 
 <section id="currency" class="page hidden">
@@ -176,6 +182,17 @@ const money=x=>{
 };
 const pct=x=>Number(x||0).toFixed(2)+'%';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Shared guard for any input the player edits directly, but that the 1-second
+// refresh loop would otherwise overwrite mid-edit: skip the update while the
+// field is focused, or while it's marked dirty (edited but not yet saved).
+function setIfClean(id, val){
+  const el=$(id); if(!el) return;
+  if(document.activeElement!==el && !el.dataset.dirty) el.value=val;
+}
+function markDirtyOnInput(...ids){
+  ids.forEach(id=>{ const el=$(id); if(el) el.addEventListener('input',()=>{ el.dataset.dirty='1'; }); });
+}
+function clearDirty(...ids){ ids.forEach(id=>{ const el=$(id); if(el) delete el.dataset.dirty; }); }
 
 function plRow(label,value,cls=''){return `<div class="pl-row ${cls}"><span>${label}</span><b>${money(value)}</b></div>`;}
 function renderPL(p={}){
@@ -239,16 +256,15 @@ function render(){
   const p=state.last_pl||{};
   $('pl').innerHTML=renderPL(p);
   $('activity').innerHTML=(state.transactions||[]).slice(0,12).map(t=>`<div class="activity"><span>${esc(t.kind)}</span><span>${money(t.amount)}</span><small>Quarter ${t.term}</small></div>`).join('')||'<p class="muted">No activity yet.</p>';
-  $('savRate').value=state.savings_rate; $('fdRate').value=state.fd_rate; $('fdTerm').value=state.fd_term; $('loanRate').value=state.loan_rate; $('loanTerm').value=state.loan_term;
+  setIfClean('savRate', state.savings_rate); setIfClean('fdRate', state.fd_rate); setIfClean('fdTerm', state.fd_term); setIfClean('loanRate', state.loan_rate); setIfClean('loanTerm', state.loan_term);
   $('branchCount').textContent=state.branches.length;
   $('nextBranchCost').textContent=money(branchCost(state.branches.length));
   $('branchIncome').textContent=money(state.branches.reduce((a,b)=>a+branchIncome(b.level),0));
   $('branchList').innerHTML=state.branches.map((b,i)=>{const lvl=Number(b.level||1); const max=lvl>=5; const cost=branchUpgradeCost(b); const bonus=branchUpgradeBonus(lvl); return `<div class="branchrow"><div><b>Branch ${i+1}</b> · Level ${lvl}<br><small>Purchase ${money(b.cost)} · Income ${money(branchIncome(lvl))}/quarter · Upgrade bonus +${bonus.toFixed(0)}%</small><br><small>${max?'MAX LEVEL 5':'Next upgrade: +'+(bonus+10).toFixed(0)+'% income · Cost '+money(cost)}</small></div>${max?'<button class="mini" disabled>Max level</button>':`<button class="mini" onclick="upgradeBranch(${i})">Upgrade</button>`}</div>`}).join('')||'<p class="muted">No branches.</p>';
-  // Do not overwrite a value the player is currently entering in the lending pool.
-  // The dashboard refreshes every second, so blindly assigning .value here
-  // used to reset the input while the player was typing.
-  const loanInput=$('loanLimit');
-  if(document.activeElement!==loanInput && !loanInput.dataset.dirty){ loanInput.value=state.loan_limit??''; }
+  // Do not overwrite a value the player is currently entering — the dashboard
+  // refreshes every second, so blindly assigning .value here used to reset
+  // inputs (rates, loan limit) while the player was still typing into them.
+  setIfClean('loanLimit', state.loan_limit??'');
   const lent=(state.lent||[]).reduce((a,x)=>a+x.principal,0);
   $('myLoanRate').textContent=pct(state.loan_rate); $('myLoanTerm').textContent=`${state.loan_term} quarters`; $('loanPool').textContent=`Lent: ${money(lent)} · Available: ${money(Math.max(0,(state.loan_limit??state.reserve*.25)-lent))}`;
   $('loansList').innerHTML=[...(state.lent||[]).map(x=>`<p>Lent to ${esc(x.borrower_name)} · ${money(x.principal)} · ${x.term_left} quarters left</p>`),...(state.owed||[]).map(x=>`<p>Borrowed from ${esc(x.lender_name)} · ${money(x.principal)} · ${x.term_left} quarters left</p>`)].join('')||'<p class="muted">No active loans.</p>';
@@ -279,9 +295,71 @@ async function showProfile(id){
     view('profile');
   }catch(e){alert(e.message)}
 }
+const MARKET_COLUMNS=[
+  {key:'bank_name',label:'Bank',sortable:true,type:'string'},
+  {key:'savings_rate',label:'Savings',sortable:true,type:'num'},
+  {key:'fd_rate',label:'FD',sortable:true,type:'num'},
+  {key:'loan_rate',label:'Loan',sortable:true,type:'num'},
+  {key:'share_price',label:'Valuation',sortable:true,type:'num'},
+  {key:'term',label:'Term',sortable:false,type:'num'}
+];
+let marketSort=[]; // ordered list of {key,dir:1|-1}; earlier entries have higher sort priority
+let marketPage=1;
+const MARKET_PAGE_SIZE=8;
+function sortMarketBy(key,additive){
+  const col=MARKET_COLUMNS.find(c=>c.key===key); if(!col||!col.sortable) return;
+  const idx=marketSort.findIndex(s=>s.key===key);
+  if(additive){
+    if(idx>=0) marketSort[idx].dir*=-1; else marketSort.push({key,dir:1});
+  } else if(idx===0 && marketSort.length===1){
+    marketSort[0].dir*=-1;
+  } else {
+    marketSort=[{key,dir:1}];
+  }
+  marketPage=1; renderMarket();
+}
+function clearMarketSort(){ marketSort=[]; marketPage=1; renderMarket(); }
+function marketPrevPage(){ if(marketPage>1){marketPage--; renderMarket();} }
+function marketNextPage(){ marketPage++; renderMarket(); }
+function compareBanks(a,b){
+  for(const {key,dir} of marketSort){
+    const col=MARKET_COLUMNS.find(c=>c.key===key);
+    let av=a[key], bv=b[key];
+    if(col && col.type==='string'){
+      av=String(av||'').toLowerCase(); bv=String(bv||'').toLowerCase();
+      if(av<bv) return -1*dir; if(av>bv) return 1*dir;
+    } else {
+      av=Number(av||0); bv=Number(bv||0);
+      if(av<bv) return -1*dir; if(av>bv) return 1*dir;
+    }
+  }
+  return 0;
+}
+function renderMarketHead(){
+  const el=$('marketHead'); if(!el) return;
+  el.innerHTML=MARKET_COLUMNS.map(c=>{
+    if(!c.sortable) return `<th>${c.label}</th>`;
+    const order=marketSort.findIndex(s=>s.key===c.key);
+    const active=order>=0;
+    const arrow=active?(marketSort[order].dir>0?'▲':'▼'):'';
+    const priority=(marketSort.length>1 && active)?`<sup>${order+1}</sup>`:'';
+    return `<th class="sortable${active?' active':''}" onclick="sortMarketBy('${c.key}',event.shiftKey)" title="Click to sort. Shift-click to sort by more than one column.">${c.label}<span class="sort-indicator">${arrow}${priority}</span></th>`;
+  }).join('');
+}
 function renderMarket(){
   if(!$('banks'))return;
-  $('banks').innerHTML=banks.map(b=>`<tr><td><b>${esc(b.bank_name)}</b> ${b.id===state?.id?'<span class="tag">YOU</span>':''}<button class="mini bank-view-btn" onclick="showProfile(${b.id})">View</button></td><td><b>${pct(b.savings_rate)}</b><small>flexible</small></td><td><b>${pct(b.fd_rate)}</b><small>${b.fd_term}Q</small></td><td><b>${pct(b.loan_rate)}</b><small>${b.loan_term}Q</small></td><td><small>Q${b.term} · ${pct(b.inflation)} infl.</small></td></tr>`).join('');
+  renderMarketHead();
+  const rows = marketSort.length ? [...banks].sort(compareBanks) : banks;
+  const totalPages=Math.max(1, Math.ceil(rows.length/MARKET_PAGE_SIZE));
+  if(marketPage>totalPages) marketPage=totalPages;
+  if(marketPage<1) marketPage=1;
+  const start=(marketPage-1)*MARKET_PAGE_SIZE;
+  const pageRows=rows.slice(start,start+MARKET_PAGE_SIZE);
+  $('banks').innerHTML=pageRows.map(b=>`<tr><td><b>${esc(b.bank_name)}</b> ${b.id===state?.id?'<span class="tag">YOU</span>':''}<button class="mini bank-view-btn" onclick="showProfile(${b.id})">View</button></td><td><b>${pct(b.savings_rate)}</b><small>flexible</small></td><td><b>${pct(b.fd_rate)}</b><small>${b.fd_term}Q</small></td><td><b>${pct(b.loan_rate)}</b><small>${b.loan_term}Q</small></td><td><b>${money(b.share_price)}</b><small>cap ${money(b.market_cap)}</small></td><td><small>Q${b.term} · ${pct(b.inflation)} infl.</small></td></tr>`).join('');
+  $('marketPageInfo').textContent=rows.length?`Page ${marketPage} of ${totalPages} · ${rows.length} bank${rows.length===1?'':'s'}`:'No banks yet.';
+  $('marketPrevBtn').disabled = marketPage<=1;
+  $('marketNextBtn').disabled = marketPage>=totalPages;
+  $('marketClearSortBtn').classList.toggle('hidden', marketSort.length===0);
 }
 function fillBankSelects(){}
 function branchValue(bs){return (bs||[]).reduce((sum,b)=>sum+Number(b.cost||0)+Number(b.upgradesCost||0),0)}
@@ -289,11 +367,11 @@ function branchCost(n){return 700000*2**n}
 function branchUpgradeCost(b){const level=Math.max(1,Number(b?.level||1)); return level>=5?0:100000*Math.pow(2,level-1)}
 function branchUpgradeBonus(level){return 10*(Math.max(1,Math.min(5,Number(level||1)))-1)}
 function branchIncome(level){return 300000*(1+branchUpgradeBonus(level)/100)}
-async function saveRates(){try{await api('/api/rates',{method:'POST',body:JSON.stringify({savings:$('savRate').value,fd:$('fdRate').value,fd_term:$('fdTerm').value,loan_rate:$('loanRate').value,loan_term:$('loanTerm').value})});$('rateMsg').textContent='Rates saved.';refresh()}catch(e){$('rateMsg').textContent=e.message}}
+async function saveRates(){try{await api('/api/rates',{method:'POST',body:JSON.stringify({savings:$('savRate').value,fd:$('fdRate').value,fd_term:$('fdTerm').value,loan_rate:$('loanRate').value,loan_term:$('loanTerm').value})});clearDirty('savRate','fdRate','fdTerm','loanRate','loanTerm');$('rateMsg').textContent='Rates saved.';refresh()}catch(e){$('rateMsg').textContent=e.message}}
 async function buyBranch(){try{await api('/api/branch/buy',{method:'POST'});refresh()}catch(e){alert(e.message)}}
 async function upgradeBranch(index){try{const d=await api('/api/branch/upgrade',{method:'POST',body:JSON.stringify({index})});await refresh();alert('Branch upgraded to Level '+d.level+'. Income bonus is now +'+((d.level-1)*10)+'%.')}catch(e){alert(e.message)}}
-async function saveLoanLimit(){try{const input=$('loanLimit');await api('/api/loan/limit',{method:'POST',body:JSON.stringify({amount:input.value})});delete input.dataset.dirty;await refresh()}catch(e){alert(e.message)}}
-$('loanLimit').addEventListener('input',()=>{$('loanLimit').dataset.dirty='1';});
+async function saveLoanLimit(){try{const input=$('loanLimit');await api('/api/loan/limit',{method:'POST',body:JSON.stringify({amount:input.value})});clearDirty('loanLimit');await refresh()}catch(e){alert(e.message)}}
+markDirtyOnInput('savRate','fdRate','fdTerm','loanRate','loanTerm','loanLimit');
 async function requestLoan(bankId, amount){const d=await api('/api/loan/request',{method:'POST',body:JSON.stringify({bank_id:bankId,amount})});return d}
 async function doSavings(bankId, amount){const d=await api('/api/deposit/savings',{method:'POST',body:JSON.stringify({bank_id:bankId,amount})});return d}
 async function doFD(bankId, amount){const d=await api('/api/deposit/fd',{method:'POST',body:JSON.stringify({bank_id:bankId,amount})});return d}
